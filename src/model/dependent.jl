@@ -405,7 +405,8 @@ function setinits!(s::ArrayStochastic, m::Model, x::DenseArray)
       end
     end
   elseif !isa(s.distr, UnivariateDistribution) && dims(s) != dims(s.distr)
-    throw(DimensionMismatch("incompatible distribution for stochastic node"))
+    throw(DimensionMismatch("incompatible distribution for stochastic node $(s.symbol).\n
+                              Expected $(dims(s.distr)), got$(dims(s))."))
   end
   setmonitor!(s, s.monitor)
 end
