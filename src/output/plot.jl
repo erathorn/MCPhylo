@@ -6,10 +6,19 @@ Function that takes a MCMC chain and creates various different plots (trace &
 density by default).
 
 # Arguments
-- 'vars::Vector{String}=String[]' : specifies the variables of the chain that
-                                    are plotted
-- 'filename::String=""' : when given, the plots will be saved to a file
-- 'fmt::Symbol=:pdf' : Format of the output file
+- 'vars::Vector{String}=String[]': specifies the variables of the chain that
+                                   are plotted. Trick: Instead of inputting
+                                   [varname[1], varname[2], varname[3], ...]
+                                   you can simply write [varname]. The function
+                                   will understand that you want all variables
+                                   with that name.
+- 'filename::String=""': when given, the plots will be saved to a file
+- 'fmt::Symbol=:pdf': Format of the output file
+- 'fuse::Bool=false': Fuse all of the plots into one big plot, instead of
+                      displaying each of the different plot types separately
+- 'f_layout=nothing': Layout for the fused plot.
+- 'fsize::Tuple(Number, Number)=(0,0)': Size of the fused plot.
+- 'force::Bool=false': Force plotting of more than 20 variables.
 - 'args...': This includes specific arguments for the different plot types
              , like the number of bins for the contourplot or if the barplots
              bars should be stacked or not. Check the specific plot functions
@@ -28,14 +37,17 @@ density by default).
 function plot(c::AbstractChains, ptype::Vector{Symbol}=[:trace, :density];
               vars::Vector{String}=String[], filename::String="",
               fmt::Symbol=:pdf, fuse::Bool=false, f_layout=nothing,
-              fsize::Tuple{Number, Number}=(0, 0), args...
+              fsize::Tuple{Number, Number}=(0, 0),
+              force::Bool=false, args...
               )::Union{Vector{Plots.Plot}, Tuple{Vector{Plots.Plot}, Plots.Plot}}
   if !isempty(vars)
     indeces = check_vars(c.names, vars)
   else
     indeces = collect(1:length(c.names))
   end # if / else
+  isempty(indeces) && throw(ArgumentError("Input Variables not in Chain object. Exiting function."))
   ilength = length(indeces)
+  ilength > 20 && !force && throw(ArgumentError("Too many variables for plotting. Set force argument to 'true' to force plotting."))
   if :contour in ptype && ilength == 1
     filter!(e -> e ≠ :contour, ptype)
     if isempty(ptype)
@@ -46,21 +58,34 @@ function plot(c::AbstractChains, ptype::Vector{Symbol}=[:trace, :density];
   end # if
   n = length(ptype)
   p = Array{Plots.Plot}(undef, n)
+  layout = :layout in keys(args) ? args[:layout] : ilength == 6 ? (2, 3) :
+           ilength in [7, 8] ? (2, 4) : ilength == 9 ? (3, 3) :
+           ilength == 10 ? (2, 5) : ilength in [11, 12] ? (3, 4) :
+           ilength in [13, 15] ? (3, 5) : ilength in [14, 16] ? (4, 4) :
+           ilength in [17, 18] ? (3, 6) : ilength in [19, 20] ? (4, 5) :
+           (1, ilength)
+  if ilength > 20 && !(:layout in keys(args))
+    @warn "For plotting this many variables, it is suggested to pass a layout for better visibility.
+         For example: If you have 25 variables to plot, try passing layout=(5,5) for a nice 5x5 grid"
+  end # if
   for i in 1:n
     ptype[i] == :bar ? p[i] = bar_int(c, indeces; args...) :
-    ptype[i] == :mixeddensity ? p[i] = mixeddensityplot(c, indeces; args...) :
-    p[i] = Plots.plot(c, indeces; ptype=ptype[i], size=(ilength * 500, 300), args...)
+    ptype[i] == :mixeddensity ? p[i] = mixeddensityplot(c, indeces; size=(ilength * 400 / layout[1], 250 * layout[1]),
+                                layout=layout, args...) :
+    p[i] = Plots.plot(c, indeces; ptype=ptype[i],
+                      size=(ilength * 400 / layout[1], 250 * layout[1]),
+                      layout=layout, args...)
     if !fuse
-      if n != 1
+      display(p[i])
+      if n != 1 && i != n
         println("Press ENTER to draw next plot")
         readline(stdin)
       end # if
-      display(p[i])
     end # if
   end # for
   if fuse
     isnothing(f_layout) && (f_layout = (n, 1))
-    fsize == (0, 0) && (fsize = (ilength * 500, n * 300))
+    fsize == (0, 0) && (fsize = (ilength * 400 / layout[1] * n / f_layout[1], f_layout[1] * 250 * layout[1]))
     allplots = Plots.plot(p..., layout=f_layout, size=fsize)
     display(allplots)
     filename != "" && check_filename(filename, fmt, allplots)
@@ -82,7 +107,7 @@ variables. Only those variables are then plotted in the following steps.
 function check_vars(sim_names::Vector{AbstractString}, vars::Vector{String})::Vector{Int64}
     names = []
     for var in vars
-        if endswith(var, r"\[[0-9]*\]")
+        if endswith(var, r"\[[0-9]+\]")
             for sim_name in sim_names
                 if sim_name == var
                     push!(names, sim_name)
@@ -90,7 +115,7 @@ function check_vars(sim_names::Vector{AbstractString}, vars::Vector{String})::Ve
             end # for
         else
             for sim_name in sim_names
-                if sim_name == var || occursin(Regex(var * "\\[[0-9]+\\]"), sim_name)
+                if sim_name == var || occursin(Regex(var * "\\[\\w+\\]"), sim_name)
                   #(occursin(sim_name,r"\[[0-9]*\]") && sim_name[1 : findfirst("[", sim_name)[1]-1] == var))
                     push!(names, sim_name)
                 end # if
@@ -135,8 +160,11 @@ end # check_filename
   gridalpha --> 0.5
   legend --> false
   legendtitle --> "Chain"
-  legendtitlefonthalign := :left
-  margin --> 7mm
+  legendtitlefonthalign := :best
+  top_margin := 2mm
+  bottom_margin := 2mm
+  left_margin := 15mm
+  right_margin := 5mm
 
   arr = []
   ptype == :autocor ? push!(arr, Autocor(c, indeces, maxlag)) :
@@ -163,7 +191,7 @@ struct Trace; c; indeces; end
 Recipe for Autocor plots
 """
 @recipe function f(acor::Autocor)
-  xguide --> "Lag"
+  xguide --> "Lag\n"
   yguide --> "Autocorrelation"
   xlims --> (0, +Inf)
   layout --> (1, length(acor.indeces))
@@ -217,7 +245,7 @@ function bar_int(c::AbstractChains, indeces::Vector{Int64}; args...)::Plots.Plot
                                 group=repeat(c.chains, inner=[n]),
                                 title=c.names[i], args...)
   end # for
-  p = Plots.plot(bar_plots..., layout=(1, ilength), size=(ilength * 500, 300))
+  p = Plots.plot(bar_plots..., layout=(1, ilength), size=(ilength * 400, 250))
   return p
 end # function
 
@@ -273,7 +301,7 @@ end # recipe
 Recipe for density plots
 """
 @recipe function f(dens::Density)
-  xguide --> "Value"
+  xguide --> "Value\n"
   yguide --> "Density"
   ylims --> (0.0, +Inf)
   layout --> (1, length(dens.indeces))
@@ -310,7 +338,7 @@ end # recipe
 Recipe for mean plots
 """
 @recipe function f(mean::Mean)
-  xguide --> "Iteration"
+  xguide --> "Iteration\n"
   yguide --> "Mean"
   layout --> (1, length(mean.indeces))
 
@@ -359,10 +387,10 @@ function mixeddensityplot(c::AbstractChains, indeces::Vector{Int64};
     if discrete[i] == true
       plots[i] = bar_int(c, [indeces[i]]; args...)
     else
-      plots[i] = Plots.plot(c, [indeces[i]]; ptype=:density, size=(500, 300), args...)
+      plots[i] = Plots.plot(c, [indeces[i]]; ptype=:density, size=(400, 250), args..., layout=(1,1))
     end # if / else
   end # for
-  p = Plots.plot(plots..., layout=(1, ilength), size=(ilength * 500, 300))
+  p = Plots.plot(plots...; layout=args[:layout])
   return p
 end # function
 
@@ -374,7 +402,7 @@ end # function
 Recipe for trace plots
 """
 @recipe function f(trace::Trace)
-  xguide --> "Iteration"
+  xguide --> "Iteration\n"
   yguide --> "Value"
   layout --> (1, length(trace.indeces))
   legendtitle --> "Chain"
@@ -417,13 +445,13 @@ grouped_xy(y::AbstractArray) = 1:size(y,1), y
 Recipe for a grouped bar plot.
 """
 @recipe function f(g::GroupBar; spacing=0)
-    xguide --> "Value"
+    xguide --> "Value\n"
     yguide --> "Density"
     grid --> :dash
     gridalpha --> 0.5
     legend --> false
     legendtitle --> "Chain"
-    legendtitlefonthalign := :left
+    legendtitlefonthalign := :best
     margin --> 7mm
     x, y = grouped_xy(g.args...)
 
@@ -518,3 +546,49 @@ function groupedbar_fillrange(y)
     end
     y, fr
 end
+
+
+"""
+  plot_asdsf(c::AbstractChains; args...)::Plots.Plot
+
+--- INTERNAL ---
+Plot the ASDSF values of an Abstract Chains object.
+"""
+function plot_asdsf(c::AbstractChains; args...)::Plots.Plot
+  size(c.stats, 1) == 0 && throw(ArgumentError("No ASDSF values have been computed on this simulation. Cannot plot them."))
+  freq = c.sim_params.freq
+  xvals = collect(c.sim_params.burnin + freq : freq :c.model.iter)
+  p = Plots.plot(ASDSF_trace(c.stats, xvals); args...)
+end # plot_asdsf
+
+# struct for asdsf recipe
+struct ASDSF_trace; yvals; xvals; end
+
+
+"""
+    f(vals::ASDSF_trace)
+
+--- INTERNAL ---
+Recipe for trace plots of ASDSF values
+"""
+@recipe function f(vals::ASDSF_trace)
+
+  xlims --> (vals.xvals[1], vals.xvals[end])
+  ylims --> (0, 1)
+  grid --> :dash
+  gridalpha --> 0.5
+  legend --> false
+  legendtitle --> "Tree Dimension"
+  legendtitlefonthalign --> :best
+  xguide --> "n-th Tree"
+  yguide --> "ASDSF Values"
+  margin --> 7mm
+
+  for i in 1:size(vals.yvals, 2)
+    @series begin
+      label --> string(i)
+      seriestype := :line
+      vals.xvals, vals.yvals[:, i]
+    end # series
+  end # for
+end # recipe

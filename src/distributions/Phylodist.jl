@@ -28,11 +28,11 @@ function PhyloDist(my_tree::T, base_freq::S, substitution_rates::R, rates::R, su
 end
 
 """
-    function PhyloDist(my_tree::T, base_freq::S, substitution_rates::R, rates::R, substitution_model::Function) where {T<:Node, S<:DenseArray{Float64}, R<:Real}
+    function PhyloDist(my_tree::T, base_freq::S, substitution_rates::R, rates::R, substitution_model::Function) where {T<:GeneralNode, S<:DenseArray{Float64}, R<:Real}
 
 Convenience function which can work with MCPhylo types.
 """
-function PhyloDist(my_tree::T, base_freq::S, substitution_rates::R, rates::R, substitution_model::Function) where {T<:Node, S<:DenseArray{Float64}, R<:Real}
+function PhyloDist(my_tree::T, base_freq::S, substitution_rates::R, rates::R, substitution_model::Function) where {T<:GeneralNode, S<:DenseArray{Float64}, R<:Real}
     PhyloDist(my_tree, Array(base_freq), [substitution_rates], [rates], substitution_model)
 end
 

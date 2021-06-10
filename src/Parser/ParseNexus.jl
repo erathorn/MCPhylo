@@ -2,12 +2,9 @@
 
 """
     ParseNexus(filename::String)
-
 This function parses a NEXUS file which stores the input for the MCMC compuation.
 The file should follow the conventions used for MrBayes.
-
 Returns ntax, nchar, gap, and missing_representation values; returns Dataframe storing language names and data.
-
 * `filename` : NEXUS file to be parsed.
 """
 function ParseNexus(filename::String)
@@ -28,18 +25,17 @@ function ParseNexus(filename::String)
     end # while
     # get meta info
     ntax, nchar, gap, missing_representation, symbols = extract_meta_info(content)
-    df = create_nexusdf(content)
+    langs, df = create_nexusdf(content)
 
     out_symbols = symbols == "NOSYMBOLS" ? get_alphabet(df, gap, missing_representation) : [string(s) for s in symbols]
 
-    return ntax, nchar, gap, missing_representation, out_symbols, df
+    return ntax, nchar, gap, missing_representation, out_symbols, df, langs
 end # function ParseNexus
 
 
-function get_alphabet(df::DataFrame, gap::String, missing_representation::String)
-    d = df[:, :Data]
+function get_alphabet(df::Array, gap::String, missing_representation::String)
     alphabet = Set{String}()
-    for row in d
+    for row in df
         for entry in row
             entry = string(entry)
             if !(entry == gap) && !(entry == missing_representation)
@@ -52,12 +48,9 @@ end
 
 """
     extract_meta_info(content::Array{String})
-
 This function extracts some meta information from the content of the nexus file.
 It "eats-up" the stack.
-
 Returns values derived from metadata (ntax, nchar, gap, missing_representation). Used in ParseNexus().
-
 * `content` : Array of Strings; Strings are read from NEXUS file in ParseNexus().
 """
 function extract_meta_info(content::Array{String})
@@ -104,16 +97,17 @@ function extract_meta_info(content::Array{String})
 end # function extract_meta_info
 
 """
-    create_nexusdf(filecontent::Array{String})::DataFrame
-
+    create_nexusdf(filecontent::Array{String})::Tuple{Array{SubString}, Array{Char}}
 This function creates a DataFrame of the actual data. Used in ParseNexus().
-
 Returns DataFrame of language names and data derived from NEXUS file.
-
 * `filecontent` : Array of Strings; Strings are read from NEXUS file in ParseNexus().
 """
-function create_nexusdf(filecontent::Array{String})::DataFrame
-    df = DataFrame(Language=String[], Data=String[])
+function create_nexusdf(filecontent::Array{String})::Tuple{Array{String}, Array{Char}}
+    #df = DataFrame(Language=String[], Data=String[])
+    languages = String[]
+    data = Char[]
+    nlangs = 0
+    ntax = 0
     while true
         line = popfirst!(filecontent)
         if line == ""
@@ -121,8 +115,13 @@ function create_nexusdf(filecontent::Array{String})::DataFrame
         elseif line == ";"
             break
         else
-            push!(df, split(line))
+            lang, raw = split(line)
+            push!(languages,lang)
+            ntax = length(raw)
+            data = append!(data,raw)
+            nlangs += 1
+
         end # if
     end # while
-    return df
+    return languages, permutedims(reshape(data, (ntax,nlangs)))
 end # function create_nexusdf

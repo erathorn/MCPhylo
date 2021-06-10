@@ -2,8 +2,8 @@ using MCPhylo
 using Test
 
 @testset "find_common_clusters" begin
-    ref_tree = MCPhylo.parsing_newick_string("((A,(B,(C,(D,E)))),(F,(G,H)))")
-    tree2 = MCPhylo.parsing_newick_string("((G,(C,(A,(F,E)))),(B,(D,H)))")
+    ref_tree = MCPhylo.parsing_newick_string("((A,(B,(C,(D,E)))),(F,(G,H)));")
+    tree2 = MCPhylo.parsing_newick_string("((G,(C,(A,(F,E)))),(B,(D,H)));")
     MCPhylo.number_nodes!.([ref_tree, tree2])
     MCPhylo.set_binary!.([ref_tree, tree2])
     A, B, C, D, E, F, G, H = MCPhylo.find_by_name(tree2, "A"), MCPhylo.find_by_name(tree2, "B"),
@@ -16,7 +16,7 @@ using Test
                            (D.num, (true, 1.0)), (E.num, (true, 1.0)), (F.num, (true, 1.0)), (G.num, (true, 1.0)), (H.num, (true, 1.0))])
     @test isequal(MCPhylo.find_common_clusters(ref_tree, tree2) , expected_dict)
 
-    tree3 = MCPhylo.parsing_newick_string("((A,(C,(D,(B,E)))),(G,(F,H)))")
+    tree3 = MCPhylo.parsing_newick_string("((A,(C,(D,(B,E)))),(G,(F,H)));")
     MCPhylo.number_nodes!(tree3)
     MCPhylo.set_binary!(tree3)
     A, B, C, D, E, F, G, H = MCPhylo.find_by_name(tree3, "A"), MCPhylo.find_by_name(tree3, "B"),
@@ -29,7 +29,7 @@ using Test
                            (D.num, (true, 1.0)), (E.num, (true, 1.0)), (F.num, (true, 1.0)), (G.num, (true, 1.0)), (H.num, (true, 1.0))])
     @test isequal(MCPhylo.find_common_clusters(ref_tree, tree3), expected_dict)
 
-    tree4 = MCPhylo.parsing_newick_string("((A,(B,(C,(D,E)))),(F,(G,H)))")
+    tree4 = MCPhylo.parsing_newick_string("((A,(B,(C,(D,E)))),(F,(G,H)));")
     MCPhylo.number_nodes!(tree4)
     MCPhylo.set_binary!(tree4)
     A, B, C, D, E, F, G, H = MCPhylo.find_by_name(tree4, "A"), MCPhylo.find_by_name(tree4, "B"),
@@ -42,28 +42,28 @@ using Test
                           (D.num, (true, 1.0)), (E.num, (true, 1.0)), (F.num, (true, 1.0)), (G.num, (true, 1.0)), (H.num, (true, 1.0))])
     @test isequal(MCPhylo.find_common_clusters(ref_tree, tree4), expected_dict)
 
-    tree5 = MCPhylo.parsing_newick_string("((G,(X,(A,(F,E)))),(B,(D,H)))")
+    tree5 = MCPhylo.parsing_newick_string("((G,(X,(A,(F,E)))),(B,(D,H)));")
     MCPhylo.number_nodes!(tree5)
     MCPhylo.set_binary!(tree5)
     @test_throws ArgumentError MCPhylo.find_common_clusters(ref_tree, tree5)
-
-    tree6 = MCPhylo.parsing_newick_string("(X,(G,(C,(A,(F,E)))),(B,(D,H)))))")
+    
+    tree6 = MCPhylo.parsing_newick_string("(X,(G,(C,(A,(F,E)))),(B,(D,H)));")
     MCPhylo.number_nodes!(tree5)
     MCPhylo.set_binary!(tree5)
     @test_throws ArgumentError MCPhylo.find_common_clusters(ref_tree, tree6)
 end
 
 @testset "one_way_compatible" begin
-    tree = MCPhylo.parsing_newick_string("((A,C,E),(B,D))")
-    tree2 = MCPhylo.parsing_newick_string("((A,C),(B,D,E))")
-    expected_tree = MCPhylo.parsing_newick_string("(A,C,E,(B,D))")
+    tree = MCPhylo.parsing_newick_string("((A,C,E),(B,D));")
+    tree2 = MCPhylo.parsing_newick_string("((A,C),(B,D,E));")
+    expected_tree = MCPhylo.parsing_newick_string("(A,C,E,(B,D));")
     MCPhylo.number_nodes!.([tree, tree2, expected_tree])
     MCPhylo.set_binary!.([tree, tree2, expected_tree])
     @test MCPhylo.newick(MCPhylo.one_way_compatible(tree, tree2)) == MCPhylo.newick(expected_tree)
 end
 
 @testset "get_leaf_ranks" begin
-    ref_tree = MCPhylo.parsing_newick_string("((A,(B,(C,(D,E)))),(F,(G,H)))")
+    ref_tree = MCPhylo.parsing_newick_string("((A,(B,(C,(D,E)))),(F,(G,H)));")
     nodes = post_order(ref_tree)
     @test MCPhylo.get_leaf_ranks(nodes) == Dict([("A", 1), ("B", 2), ("C", 3),
                                                  ("D", 4), ("E", 5), ("F", 6),
@@ -137,16 +137,16 @@ end
 end
 
 @testset "majority_consensus_tree" begin
-    tree1 = MCPhylo.parsing_newick_string("(((A,B),C),(D,E))")
-    tree2 = MCPhylo.parsing_newick_string("((A,C),(B,D,E))")
-    tree3 = MCPhylo.parsing_newick_string("(((B,C),A),D,E)")
+    tree1 = MCPhylo.parsing_newick_string("(((A,B),C),(D,E));")
+    tree2 = MCPhylo.parsing_newick_string("((A,C),(B,D,E));")
+    tree3 = MCPhylo.parsing_newick_string("(((B,C),A),D,E);")
     trees = [tree1, tree2, tree3]
     MCPhylo.number_nodes!.(trees)
     MCPhylo.set_binary!.(trees)
-    result = MCPhylo.newick(MCPhylo.parsing_newick_string("((A,B,C),D,E)"))
+    result = MCPhylo.newick(MCPhylo.parsing_newick_string("((A,B,C),D,E);"))
     @test MCPhylo.newick(MCPhylo.majority_consensus_tree(trees)) == result
 
-    tree4 = MCPhylo.parsing_newick_string("(((B,C),A),D,F)")
+    tree4 = MCPhylo.parsing_newick_string("(((B,C),A),D,F);")
     push!(trees, tree4)
     @test_throws ArgumentError MCPhylo.majority_consensus_tree(trees)
 
@@ -156,21 +156,21 @@ end
     trees = [tree1, tree2, tree3]
     MCPhylo.number_nodes!.(trees)
     MCPhylo.set_binary!.(trees)
-    result = newick(MCPhylo.parsing_newick_string("((A,B,C),D,E)"))
+    result = newick(MCPhylo.parsing_newick_string("((A,B,C),D,E);"))
     @test newick(MCPhylo.majority_consensus_tree(trees)) == result
 end
 
 @testset "loose_consensus_tree" begin
-    tree1 = MCPhylo.parsing_newick_string("(((A,B),C),(D,E))")
-    tree2 = MCPhylo.parsing_newick_string("((A,C),(B,D,E))")
-    tree3 = MCPhylo.parsing_newick_string("(((B,C),A),D,E)")
+    tree1 = MCPhylo.parsing_newick_string("(((A,B),C),(D,E));")
+    tree2 = MCPhylo.parsing_newick_string("((A,C),(B,D,E));")
+    tree3 = MCPhylo.parsing_newick_string("(((B,C),A),D,E);")
     trees = [tree1, tree2, tree3]
     MCPhylo.number_nodes!.(trees)
     MCPhylo.set_binary!.(trees)
-    result = newick(MCPhylo.parsing_newick_string("(A,B,C,(D,E))"))
+    result = newick(MCPhylo.parsing_newick_string("(A,B,C,(D,E));"))
     @test newick(MCPhylo.loose_consensus_tree(trees)) == result
 
-    tree4 = MCPhylo.parsing_newick_string("(((B,C),A),D,F)")
+    tree4 = MCPhylo.parsing_newick_string("(((B,C),A),D,F);")
     push!(trees, tree4)
     @test_throws ArgumentError MCPhylo.loose_consensus_tree(trees)
 
@@ -180,18 +180,18 @@ end
     trees = [tree1, tree2, tree3]
     MCPhylo.number_nodes!.(trees)
     MCPhylo.set_binary!.(trees)
-    result = newick(MCPhylo.parsing_newick_string("(A,B,C,(D,E)no_name)"))
+    result = newick(MCPhylo.parsing_newick_string("(A,B,C,(D,E)no_name);"))
     @test newick(MCPhylo.loose_consensus_tree(trees)) == result
 end
 
 @testset "greedy_consensus_tree" begin
-    tree1 = MCPhylo.parsing_newick_string("(((A,B),C),(D,E))")
-    tree2 = MCPhylo.parsing_newick_string("((A,C),(B,D,E))")
-    tree3 = MCPhylo.parsing_newick_string("(((B,C),A),D,E)")
+    tree1 = MCPhylo.parsing_newick_string("(((A,B),C),(D,E));")
+    tree2 = MCPhylo.parsing_newick_string("((A,C),(B,D,E));")
+    tree3 = MCPhylo.parsing_newick_string("(((B,C),A),D,E);")
     trees = [tree1, tree2, tree3]
     MCPhylo.number_nodes!.(trees)
     MCPhylo.set_binary!.(trees)
-    result = newick(MCPhylo.parsing_newick_string("(((A,B),C),(D,E))"))
+    result = newick(MCPhylo.parsing_newick_string("(((A,B),C),(D,E));"))
     # result = newick(MCPhylo.parsing_newick_string("(((A,C),B),(D,E))"))
     # result = newick(MCPhylo.parsing_newick_string("(((B,C),A),(D,E))"))
     @test newick(MCPhylo.greedy_consensus_tree(trees)) == result

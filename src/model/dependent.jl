@@ -204,7 +204,7 @@ function setinits!(l::AbstractLogical, m::Model, ::Any=nothing)
   setmonitor!(l, l.monitor)
 end
 """
-    setinits!(d::TreeLogical, m::Model, x::T) where {T<:Node}
+    setinits!(d::TreeLogical, m::Model, x::T) where {T<:GeneralNode}
 
 Set initial values for a logical node.
 
@@ -214,7 +214,7 @@ Returns the result of a call to `setmonitor!(l, l.monitor)` or `setmonitor!(d, d
 
 * `m`  : model containing the node.
 """
-function setinits!(d::TreeLogical, m::Model, x::T) where {T<:Node}
+function setinits!(d::TreeLogical, m::Model, x::T) where {T<:GeneralNode}
     d.value = d.eval(m)
     setmonitor!(d, d.monitor)
 end # function

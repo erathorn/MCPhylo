@@ -1,7 +1,7 @@
 
 
 """
-    get_branchlength_vector(post_order::Vector{Node})::Vector{Float64}
+    get_branchlength_vector(post_order::Vector{T})::Vector{Float64}  where T<:GeneralNode
 
 Return a vector of branch lengths.
 

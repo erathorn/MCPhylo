@@ -7,6 +7,7 @@ const tutorialtests = [
 ]
 
 const samplertests = [
+  "abc",
   "amm",
   "amwg",
   "bhmc",

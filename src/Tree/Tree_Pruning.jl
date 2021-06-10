@@ -1,5 +1,5 @@
 """
-    prune_tree(root::T, node_names::Vector{String})::T where T<:AbstractNode
+    prune_tree(root::T, node_names::Vector{String})::T where T<:GeneralNode
 
 This function removes specific nodes, including their descendants, from a tree.
 
@@ -7,7 +7,7 @@ This function removes specific nodes, including their descendants, from a tree.
 
 * `node_names` : vector of strings, used to specify nodes to remove.
 """
-function prune_tree(root::T, node_names::Vector{String})::T where T<:AbstractNode
+function prune_tree(root::T, node_names::Vector{String})::T where T<:GeneralNode
     # copy the tree and call the inplace version of the function on the copy
     if root.name in node_names
         throw(ArgumentError("trying to prune root, please set root to nothing instead"))
@@ -19,7 +19,7 @@ end
 
 
 """
-    prune_tree!(root::T, node_names::Vector{String})::Nothing where T<:AbstractNode
+    prune_tree!(root::T, node_names::Vector{String})::Nothing where T<:GeneralNode
 
 In-place version of prune_tree.
 
@@ -27,10 +27,10 @@ In-place version of prune_tree.
 
 * `node_names` : vector of strings, used to specify nodes to remove.
 """
-function prune_tree!(root::T, node_names::Vector{String})::Nothing where T<:AbstractNode
+function prune_tree!(root::T, node_names::Vector{String})::Nothing where T<:GeneralNode
     nodes = post_order(root)
     names = [node.name for node in nodes]
-    nodes_to_prune = Vector{Node}()
+    nodes_to_prune = Vector{T}()
     for name in node_names
         indeces = findall(x->x == name, names)
         if length(indeces) > 1
@@ -49,7 +49,7 @@ end
 
 
 """
-    prune_tree!(root::T, node_names::Vector{T})::Nothing where T<:AbstractNode
+    prune_tree!(root::T, node_names::Vector{T})::Nothing where T<:GeneralNode
 
 In-place version of prune_tree.
 
@@ -57,7 +57,7 @@ In-place version of prune_tree.
 
 * `node_names`: vector of Node objects to be removed from tree.
 """
-function prune_tree!(root::T, nodes::Vector{T})::Nothing where T<:AbstractNode
+function prune_tree!(root::T, nodes::Vector{T})::Nothing where T<:GeneralNode
     if root in nodes
         throw(ArgumentError("trying to prune root, please set root to nothing instead"))
     else

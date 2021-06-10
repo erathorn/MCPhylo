@@ -330,7 +330,9 @@ Prints header and values of Chain.
 """
 function Base.show(io::IO, c::AbstractChains)
   print(io, "Object of type \"$(summary(c))\"\n\n")
-  println(io, header(c))
+  print(io, header(c))
+  isa(c, ModelChains) && show(io, c.sim_params; short=true)
+  println()
   show(io, c.value)
 end
 """

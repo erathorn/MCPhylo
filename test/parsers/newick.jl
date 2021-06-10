@@ -35,22 +35,28 @@ using Test
 
 end
 @testset "NewickParser Special" begin
-    name, len = MCPhylo.parse_name_length("A:0.5")
-    @test name == "A"
-    @test len == 0.5
-    name, len = MCPhylo.parse_name_length("A")
-    @test name == "A"
-    @test len == 1.0
-    name, len = MCPhylo.parse_name_length("")
-    @test name == "no_name"
-    @test len == 1.0
-    name, len = MCPhylo.parse_name_length("A:0.5;")
-    @test name == "A"
-    @test len == 0.5
-    name, len = MCPhylo.parse_name_length(" A:0.5")
-    @test name == "A"
-    @test len == 0.5
-    name, len = MCPhylo.parse_name_length("A:0.5 ")
-    @test name == "A"
-    @test len == 0.5
+    node = MCPhylo.parse_name_length("A:0.5")
+    @test node.name == "A"
+    @test node.inc_length == 0.5
+    
+    node = MCPhylo.parse_name_length("A")
+    @test node.name == "A"
+    @test node.inc_length == 1.0
+    
+    node = MCPhylo.parse_name_length("")
+    @test node.name == "no_name"
+    @test node.inc_length == 1.0
+    
+    node = MCPhylo.parse_name_length("A:0.5;")
+    @test node.name == "A"
+    @test node.inc_length == 0.5
+    
+    node = MCPhylo.parse_name_length(" A:0.5")
+    @test node.name == "A"
+    @test node.inc_length == 0.5
+    
+    node = MCPhylo.parse_name_length("A:0.5 ")
+    @test node.name == "A"
+    @test node.inc_length == 0.5
+    
 end

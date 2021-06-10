@@ -41,106 +41,24 @@ function is_valid_newick_string(newick::String) #TODO: possibly not necessary; c
 end
 
 
-"""
-    parse_name_length(newick::String)
-
-This function parses two optional elements of the tree, name and length. In case, when neither of this is provided, empty string and nothing are return
-"""
-
-function parse_name_length(newick::String)
-
-    if occursin(':',newick)
-        name, len = split(strip(newick),':')
-        if name == ""
-            name = "no_name"
-        end # if
-        if len == ""
-            len = 1.0
-        end # if
-        if occursin(';',len)
-            len = chop(len)
-        end # if
-    return string(name), parse(Float64, len)
-    end # main if
-
-    if length(newick)<1
-        return "no_name",1.0
-    else
-        return string(newick),1.0
-    end #if-else
-end # function
 
 """
-    parsing_newick_string(newick::String)
+    function parsing_newick_string(newick::String)::FNode
 
-In this function main parsing process happens, it uses recursive method to parse newick formated string
+Parse a single newick string.
 """
-
-function parsing_newick_string(newick::String)
-    newick = replace(newick," "=> "")
-
-    if  newick[end] == ';' #no need for semicolon
-        newick = chop(newick)
-    end #if
-
-    if  newick[1] != ')' && occursin(r"^[a-zA-Z]+[:]?[0-9]*",newick)
-        leaf_node = Node()
-        name,len = parse_name_length(newick)
-        leaf_node.name = name
-        leaf_node.inc_length = len
-        return leaf_node
-        # base case; only triggered at end of recursion OR if a single node-tree is input
-
-    else
-        current_node = Node()
-        childrenstring_with_parenthesis = (match(r"\(([^()]|(?R))*\)",newick)).match #returns section of newick corresponding to descendants of current node, check https://regex101.com/r/lF0fI1/1
-        index=findlast(')',childrenstring_with_parenthesis)[1]
-        childrenstring = SubString(childrenstring_with_parenthesis,2,index-1) #... so that we can remove the superfluous parentheses here
-        child_list = Sibling_parse(String(childrenstring))
-
-        for x in child_list #recursion happens here
-            add_child!(current_node,parsing_newick_string(x))
-        end #for
-
-        child_list = []
-        info_of_current_node = split(newick,")") #info of current node should always follow the last ")"
-        if lastindex(info_of_current_node) == 1
-            name,length = parse_name_length(newick)
-        else
-            test = string(info_of_current_node[lastindex(info_of_current_node)])
-            name,len = parse_name_length(string(test))
-            current_node.name = name
-            current_node.inc_length = len
-        end #else
-        return current_node
-    end #recursion part
-    throw("You left recursion somehow.")
-end #function
-
-function Sibling_parse(childrenstring::String) #returns list of children of a node
-    child_list = []
-    counter = ""
-    bracket_depth = 0
-    for x in (childrenstring * ",") # splits string identified above into a list, where each element corresponds to a child of current_node
-        if x == ',' && bracket_depth == 0
-            push!(child_list,counter)
-            counter = ""
-            continue
-        end #if
-        if x == '('
-            bracket_depth += 1
-        end #if
-        if x == ')'
-            bracket_depth -= 1
-        end #if
-        counter = counter * x
-    end #for
-    return child_list
-end #function
-
+function parsing_newick_string(newick::String)::FNode
+    if !is_valid_newick_string(newick)
+        throw("$newick is not correctly formatted!")
+    end # if
+    tree = nwk_parser(string(newick))
+    set_binary!(tree)
+    number_nodes!(tree)
+    tree
+end
 
 """
-    ParseNewick(filename::String)::Array{AbstractNode, 1}
+    ParseNewick(filename::String)::Array{GeneralNode, 1}
 
 This function takes a filename as a String, and returns an array of trees(represented as Node objects).
 The file should solely consist of newick tree representations, separated by line.
@@ -151,21 +69,89 @@ Returns an Array of Nodes; each Node is the root of the tree represented by a ne
 
 * `filename` : name of file containing newick strings to parse.
 """
-function ParseNewick(filename::String)::Array{AbstractNode, 1}
-
+function ParseNewick(filename::String)::Array{GeneralNode, 1}
     list_of_trees = load_newick(filename)
-    list_of_newicks = Node[]
+    list_of_newicks = GeneralNode[]
     for content in list_of_trees
         if content == ""
             continue
         end # if
-        if !is_valid_newick_string(content)
-            throw("$content is not correctly formatted!")
-        end # if
-        tree = parsing_newick_string(string(content))
-        set_binary!(tree)
-        number_nodes!(tree)
-        push!(list_of_newicks,tree)
+        tree = parsing_newick_string(content)
+        push!(list_of_newicks, tree)
     end # for
     list_of_newicks
 end
+
+
+function nwk_parser(nwk_string::S)::FNode where S <: AbstractString
+    if  nwk_string[end] == ';' #no need for semicolon
+        nwk_string = chop(nwk_string)
+    end #if
+    parts = split(nwk_string, ")")
+    if length(parts) == 1
+        desc, node_name = [], parts[1]
+    else
+        if !(startswith(parts[1], '('))
+            throw(ArgumentError("unmatched braces $(parts[1])"))
+        else    
+            desc = parse_sibblings(join(parts[1:end-1],")")[2:end])
+            node_name = parts[end]
+        end
+    end
+    node = parse_name_length(node_name)
+    if length(desc) > 0
+        for child in desc
+            add_child!(node, child)
+        end
+    end
+    node
+end 
+
+
+function parse_sibblings(nwk_string::S)::Array{FNode} where S <: AbstractString
+    bracket_level = 0
+    current = Char[]
+    children = FNode[]
+    # trick to remove special-case of trailing chars
+    for c in (nwk_string * ",")
+        if c == ',' && bracket_level == 0
+            n = nwk_parser(join(current, ""))
+            push!(children, n)
+            current = Char[]
+        else
+            if c == '('
+                bracket_level += 1
+            elseif c == ')'
+                bracket_level -= 1
+            end
+            push!(current, c)
+        end
+    end
+    children
+end
+
+function parse_name_length(newick::S)::FNode where S<:AbstractString
+    nnam = "no_name"
+    ninc = 1.0
+    if length(newick) > 0
+        if occursin(':',newick)
+            name, len = split(strip(newick),':')
+            if name == ""
+                name = "no_name"
+            end # if
+            if len == ""
+                len = 1.0
+            end # if
+            if occursin(';',len)
+                len = chop(len)
+            end # if
+            nnam = string(name)
+            ninc = parse(Float64, len)
+        else
+            nnam = string(newick)
+        end
+    end #if-else
+    node = Node(nnam)
+    node.inc_length = ninc
+    return node
+end # function

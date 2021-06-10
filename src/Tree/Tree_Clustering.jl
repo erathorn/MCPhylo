@@ -16,7 +16,7 @@ function upgma(dm::Array{Float64,2}, leaf_names::Array{String,1})
         throw("Distance Matrix and leaf Names size do not match")
     end # end if
     # build array of leaves from leaf names
-    leaves = Array{Tuple{Node,Float64,Int64},1}(undef, size(dm, 1))
+    leaves = Array{Tuple{FNode,Float64,Int64},1}(undef, size(dm, 1))
     for (ind, leaf) in enumerate(leaf_names)
         new_leaf = Node(leaf)
         leaves[ind] = (new_leaf, 0.0, 1)
@@ -36,7 +36,7 @@ Returns a node of the resulting tree, from which it can be traversed.
 """
 function upgma(dm::Array{Float64,2})
     n = size(dm)[1]
-    leaves = Array{Tuple{Node,Float64,Int64},1}(undef, n)
+    leaves = Array{Tuple{FNode,Float64,Int64},1}(undef, n)
     # build array of dummy leaves
     for i in 1:n
         new_leaf = Node("leaf_$i")
@@ -46,7 +46,7 @@ function upgma(dm::Array{Float64,2})
 end
 
 """
-    upgma_int(dm::Array{Float64,2},leaves::Vector{Node})
+    upgma_int(dm::Array{Float64,2},leaves::Vector{FNode})
 
 --- INTERNAL ---
 Internal function that is called by both UPGMA methods. Contains the
@@ -56,7 +56,7 @@ which it can be traversed.
 """
 function upgma_int(
     dm::Array{Float64,2},
-    clusters::Array{Tuple{Node,Float64,Int64},1},
+    clusters::Array{Tuple{FNode,Float64,Int64},1},
 )
 
     n = size(dm)[1]
@@ -140,7 +140,7 @@ function neighbor_joining(dm::Array{Float64,2}, leaf_names::Array{String,1})
         throw("Distance Matrix and leaf names array size do not match")
     end # end if
     # build array of leaves from leaf names
-    leaves = Array{Node,1}(undef, size(dm, 1))
+    leaves = Array{FNode,1}(undef, size(dm, 1))
     for (ind, leaf) in enumerate(leaf_names)
         new_leaf = Node(leaf)
         leaves[ind] = new_leaf
@@ -160,7 +160,7 @@ Returns a node of the resulting tree, from which it can be traversed.
 """
 function neighbor_joining(dm::Array{Float64,2})
     n = size(dm)[1]
-    leaves = Array{Node,1}(undef, n)
+    leaves = Array{FNode,1}(undef, n)
     # build array of dummy leaves
     for i in 1:n
         new_leaf = Node("leaf_$i")
@@ -170,7 +170,7 @@ function neighbor_joining(dm::Array{Float64,2})
 end
 
 """
-    neighbor_joining_int(dm::Array{Float64,2},leaves::Vector{Node})
+    neighbor_joining_int(dm::Array{Float64,2},leaves::Vector{FNode})
 
 --- INTERNAL ---
 Internal function that is called by both neighbor_joining methods. Contains the
@@ -178,7 +178,7 @@ actual neighbor-joining algorithm, i.e. builds a phylogenetic tree from the
 given distance matrix and array of leaves. Returns a node of that tree, from
 which it can be traversed.
 """
-function neighbor_joining_int(dm::Array{Float64,2}, leaves::Vector{Node})
+function neighbor_joining_int(dm::Array{Float64,2}, leaves::Vector{FNode})
 
     n = size(dm)[1]
     # count for node names

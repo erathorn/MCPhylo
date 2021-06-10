@@ -6,8 +6,8 @@
 
 See `Chains()`.
 """
-function ModelChains(c::Chains, m::Model)
-  ModelChains(c.value, c.range, c.names, c.chains, m, c.trees, c.moves, c.tree_names)
+function ModelChains(c::Chains, m::Model, stats::Array{Float64}, stat_names::Vector{AbstractString}, params::SimulationParameters, cs::Union{Nothing, ConvergenceStorage})
+  ModelChains(c.value, c.range, c.names, c.chains, m, c.trees, c.moves, c.tree_names, stats, stat_names, params, cs)
 end
 
 
@@ -21,7 +21,7 @@ Base.convert(::Type{Chains}, mc::ModelChains) =
 
 function Base.getindex(mc::ModelChains, window, names, chains)
   c = getindex(convert(Chains, mc), window, names2inds(mc, names), chains)
-  ModelChains(c, mc.model)
+  ModelChains(c, mc.model, mc.stats, mc.stat_names, mc.sim_params, mc.conv_storage)
 end
 
 names2inds(mc::ModelChains, nodekey::Symbol) = names2inds(mc, [nodekey])

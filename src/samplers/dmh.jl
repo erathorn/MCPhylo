@@ -1,113 +1,142 @@
-#################### Double Metropolis-Hastings Sampler ####################
-
-#################### Types and Constructors ####################
 
 mutable struct DMHTune <: SamplerTune
-  seed_data::AbstractArray
-  m::Int64
-
-
-  DMHTune() = new()
-  function DMHTune(seed_data::A, m::Int64) where A<:AbstractArray
-	@assert m >= length(seed_data)
-    new(seed_data, m)
-  end
-end
-
-const DMHVariate = SamplerVariate{DMHTune}
-
-
-#################### Sampler Constructor ####################
-
-function DMH(params::ElementOrVector{Symbol}, outer::Symbol,
-             inner::Symbol)
-  samplerfx = function(model::Model, block::Integer)
-    block = SamplingBlock(model, block, true)
-	targets = keys(model, :target, block)
-    f = x -> logpdf!(block, x)
-	fp = (x, y) -> pseudologpdf!(block, x, y)
-	cl = x -> conditional_likelihood(block, x)
-    v = SamplerVariate(block, f, NullFunction(); args...)
-
-    DMH_sample!(v::DMHVariate, f, fp, cl)
-
-    relist(block, v)
-  end
-  Sampler(params, samplerfx, DMHTune())
-end
-
-function DMH_sample!(v::DMHVariate, lf::Function, pslf::Function, cl::Function)
-	# 1. propose theta prime
-	# 2. Generate the auxillary variable using theta prime
-
-	# this way of generating theta_prime from the current values of theta
-	# takes care of the transition probability from theta_prime to theta and vice versa
-	# the values equal and will cancel out.
-	θ_prime = v + v.tune.scale .* rand(v.tune.proposal(0.0, 1.0), length(v))
-
-	# calculate logpdf values
-	lf_xt = lf(v.value)
-	lf_xtp = lf(θ_prime)
-
-	# store old value for possible future reference
-	θ = v.value
-
-	# prematurely assign, to allow computations to go through properly
-	v[:] = θ_prime
-
-	# Sample new pseudo observations based on the θ_prime
-	y = inner_sampler(v, cl)
-
-	# calculate logpdfs based on pseudo observations
-	lf_ytp = pslf(v.value, y)
-	lf_yt = pslf(θ, y)
-
-	# calculate acceptance probability
-	r = exp((lf_yt + lf_xtp) - (lf_xt + lf_ytp))
-
-	# RWM acceptance logic is a bit reversed here. Above the new value is
-	# prematurely assigned to allow computations in the inner sampler to go through.
-	# If the sample is accepted nothing needs to be done anymore, otherwise the
-	# old value will be reassigend.
-	if rand() > r
-		# sample is rejected, so use the old value.
-		v[:] = θ
+	logf::Union{Function, Missing}
+	pseudolog::Union{Function, Missing} # AuxLog
+	condlike::Union{Function, Missing}
+	datakeys::Vector{Symbol}
+	m::Int64
+	scale::Float64
+	link::Function
+	invlink::Function
+  
+	DMHTune() = new()
+  
+	function DMHTune(f::Union{Function, Missing}, ps, cl, m::Int64, s::Float64;
+						link::Function=identity, inverselink::Function=identity)
+	  new(f, ps, cl, Vector{Symbol}(), m, s, link, inverselink)
 	end
-	v
-end
-
-function inner_sampler(v::DMHTune, cond_prob::Function)
-	#X::Array{Int64,1}, v_params, h_params,
-	#u_params, spatial_sums::Array{Float64,2}, ling_sums::Array{Float64,2}, m::Int64)
-	m = v.m
-	X = v.seed_data
-
-	feature_vals = sort!(unique(X))
-	N = length(X)
-	samples = deepcopy(X)
-	idx_list = Vector(1:N)
-	counter = 0
-	while true
-		random_index_order = shuffle(1:N)
-		for i in random_index_order
-			if ismissing(X[i]) # no missing values yet, and this part needs improvement;
-				# To do: add the neighbour and global majority methods
-				throw("We should not end up here")
-				missing_probs = cond_prob.(Ref(samples), i, feature_vals, Ref(spatial_sums),
-					Ref(ling_sums), Ref(v_params), Ref(h_params), Ref(u_params))
-				missing_probs ./= sum(missing_probs)
-				new_x = sample(feature_vals, StatsBase.weights(missing_probs))
-				samples[i] = new_x
-			end
-				probs = cond_prob.(Ref(samples), i, feature_vals, Ref(spatial_sums), Ref(ling_sums),
-					Ref(v_params), Ref(h_params), Ref(u_params))
-				probs ./= sum(probs)
-				new_x = sample(feature_vals, StatsBase.weights(probs))
-				samples[i] = new_x
-			counter += 1
-			if counter > m
-				return samples
-			end
-		end
+	function DMHTune(f::Union{Function, Missing}, ps, cl, dk::Vector{Symbol}, m::Int64, s::Float64;
+						link::Function=identity, inverselink::Function=identity)
+	  new(f, ps, cl, dk, m, s, link, inverselink)
 	end
-end
+  end
+  
+  const DMHVariate = SamplerVariate{DMHTune}
+  
+  DMHTune(x::Vector, f, ps, cl, dk, m, s; args...) = DMHTune(f, ps, cl, dk, m, s; args...)
+  
+  #################### Sampler Constructor ####################
+  
+  function DMH(params::ElementOrVector{Symbol}, m::Int64, scale::Float64=1.0,
+			   transform::Bool=true; args...)
+  
+		samplerfx = function(model::Model, block::Integer)
+  
+	  tune = gettune(model, block)
+	  params = asvec(params)
+  
+	  targets = keys(model, :target, params)
+	  tune.datakeys = targets
+	  block = SamplingBlock(model, block, transform)
+  
+	  f = x -> logpdf!(block, x)
+	  fp = (x, y) -> pseudologpdf!(block, x, y)
+	  cl = (x, args...) -> conditional_likelihood!(block, x, args...)
+	  v = SamplerVariate(block, f, fp, cl, targets, m, scale; args...)
+  
+	  sample!(v::DMHVariate, model)
+  
+	  relist(block, v)
+	end
+	Sampler(params, samplerfx, DMHTune())
+  end
+  
+  sample!(v::DMHVariate, model) = DMH_sample!(v, v.tune, model)
+  
+  function DMH_sample!(v::DMHVariate, tune::DMHTune, model::Model)
+	  # 1. propose theta prime
+	  # 2. Generate the auxiliary variable using theta prime
+  
+	  data = unlist(model[tune.datakeys[1]])
+	  data = reshape(data, size(getindex(model, tune.datakeys[1])))
+	  nfeatures, nlang = size(data)
+	  #xobs = Array{Any}(undef, nfeatures)
+	  #nobs = Array{Float64}(undef, nfeatures)
+  
+	  # Separate missing from observed indices
+	  #for f in 1:nfeatures
+	  #	xmis = findall(x -> x .== -10, data[f,:])
+	  #	xobs[f,:] = findall(x -> x .≠ -10, data[f,:])
+	  #	nobs[f] = length(xobs[f,:])
+	  #end
+  
+	  @assert v.tune.m >= nlang
+  
+	  # store old value for possible future reference
+	  θ = deepcopy(v.value)
+	  # this way of generating theta_prime from the current values of theta
+	  # takes care of the transition probability from theta_prime to theta and vice versa
+	  # the values equal and will cancel out.
+	  θ_prime = θ + v.tune.scale .* rand(Normal(0.0, 1.0), length(v))
+  
+	  #println("real")
+	  # calculate logpdf values
+	  lf_xt = tune.logf(v.value)
+  
+	  #println("θ_prime $θ_prime")
+	  lf_xtp = tune.logf(θ_prime)
+  
+	  # prematurely assign, to allow computations to go through properly
+	  v[:] = θ_prime
+  
+	  # Sample new pseudo observations based on the θ_prime
+	  y = inner_sampler(v, deepcopy(data)) #xobs
+  
+	  # calculate logpdfs based on pseudo observations
+	  #println("pseudo")
+	  lf_ytp = tune.pseudolog(v.value, y) # -> Do I calculate the prior here??? This should not happen!!!
+	  lf_yt = tune.pseudolog(θ, y)
+  
+	  # calculate acceptance probability (proposal distribution?)
+	  r = exp((lf_yt + lf_xtp) - (lf_xt + lf_ytp))
+	  #println("r $r")
+  
+	  # RWM acceptance logic is a bit reversed here. Above the new value is
+	  # prematurely assigned to allow computations in the inner sampler to go through.
+	  # If the sample is accepted nothing needs to be done anymore, otherwise the
+	  # old value will be reassigned.
+  
+	  if rand() > r
+		  #println("rejected")
+		  # sample is rejected, so use the old value.
+		  v[:] = θ
+	  end
+	  #println("v ", v[:])
+	  v
+  
+	  # here?
+  end
+  
+  function inner_sampler(v::DMHVariate, X::Array{N,2})::Array{N, 2} where N <: Real
+	  nfeatures, nlangs = size(X)
+	  counter = zero(Int64)
+  
+	  while true
+		  random_language_idx = shuffle(1:nlangs)
+		  random_feature_idx = shuffle(1:nfeatures)
+		  @inbounds for i in random_language_idx
+			  @inbounds for f in random_feature_idx
+				  
+				  probs = v.tune.condlike(v, X, i, f)	
+				  new_x = sample(1:length(probs), Weights(probs))
+					X[f, i] = new_x
+			  #	end
+			  end
+			  counter += 1
+			  if counter > v.tune.m
+				  return X
+			  end
+		  end
+	  end
+  end
+  

@@ -79,7 +79,7 @@ function logpdf(mc::ModelChains,
   ]
   sims = pmap2(logpdf_modelchains_worker, lsts)
 
-  ModelChains(cat(sims..., dims=3), mc.model)
+  ModelChains(cat(sims..., dims=3), mc.model, mc.stats, mc.stat_names)
 end
 
 
@@ -149,7 +149,7 @@ function predict(mc::ModelChains,
     end
   end
 
-  ModelChains(c, m)
+  ModelChains(c, m, c.stats, c.stat_names)
 end
 
 

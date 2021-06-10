@@ -94,12 +94,12 @@ mutable struct exponentialBL <: ContinuousUnivariateDistribution
             new(scale, c)
 end
 
-function _logpdf(d::exponentialBL, x::Node)
+function _logpdf(d::exponentialBL, x::FNode)
     bl = get_branchlength_vector(x)
     sum(logpdf.(Exponential(d.scale), bl))
 end
 
-function insupport(d::exponentialBL, x::Node)
+function insupport(d::exponentialBL, x::FNode)
     bl = get_branchlength_vector(x)
     res = all(isfinite.(bl)) && all(0 .< bl) && topological(x, d.constraints) && !any(isnan.(bl))
 
@@ -107,7 +107,7 @@ function insupport(d::exponentialBL, x::Node)
 end # function insupport
 
 
-function gradlogpdf(d::exponentialBL, x::Node)
+function gradlogpdf(d::exponentialBL, x::FNode)
     bl = get_branchlength_vector(x)
     g(y) = sum(logpdf.(Exponential(d.scale), y))
     r = Zygote.pullback(g, bl)

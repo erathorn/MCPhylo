@@ -1,26 +1,18 @@
-
-#TODO: Newick parser
-
 """
-    to_df(root::Node)::DataFrame
+    to_df(root::GeneralNode)::Tuple{Array{Float64}, Vector{String}}
 
-This function returns a matrix representation of the tree structure. The matirx
-is returned as a DataFrame so that the names of the columns are the names of the
-tips in the tree. The entry `df[i,j]` is the length of the edge connecting node
-`i` with node `j`.
-
-Returns a Dataframe.
+This function returns a matrix representation of the tree structure and a vector with the column names.
+The entry `mat[i,j]` is the length of the edge connecting node `i` with node `j`.
+Returns Tuple containing the matrix and a vector of names.
 
 * `root` : root of tree used to create matrix represenation.
 """
-function to_df(root::Node)::DataFrame
+function to_df(root::GeneralNode)::Tuple{Array{Float64}, Vector{String}}
 
     post_order_iteration = post_order(root)
 
     name_list = [i.name for i in post_order_iteration]
-
     temp_ar = zeros(Float64, (length(post_order_iteration), length(post_order_iteration)))
-
     for i in post_order_iteration
         if i.nchild != 0
             ind = indexin(i.name, name_list)
@@ -30,25 +22,25 @@ function to_df(root::Node)::DataFrame
             end # end for
         end # end if
     end # end for
-    df = convert(DataFrame, temp_ar)
-    names!(df, [Symbol(i) for i in name_list])
-    return df
+
+    return df, name_list
 end # end function to_df
 
 
 """
-    from_df(df::DataFrame)::Node
+    from_df(df::Array{Float64,2}, name_list::Vector{String})::GeneralNode
 
-This function takes a DataFrame and turns it into a tree. It assumes a rooted
-binary tree is stored in the matrix. No checks are performed.
+This function takes an adjacency matrix and a vector of names
+and turns it into a tree. No checks are performed.
 
 Returns the root node of the tree.
 
-* `df` : Dataframe used to create a tree.
+* `df` : matrix with edge weights
+* `name_list` : a list of names such that they match the column indices of the matrix
 """
-function from_df(df::DataFrame)::Node
+function from_df(df::Array{Float64,2}, name_list::Vector{String})::FNode
 
-    node_list::Vector{Node} = [Node(String(i) , [0.0], Node[], 0, true, 0.0, "0") for i in names(df)]
+    node_list::Vector{FNode} = [Node(String(i)) for i in name_list]
 
     for (col_index, col) in enumerate(eachcol(df))
         for (row_index, entry) in enumerate(col)
@@ -67,15 +59,16 @@ function from_df(df::DataFrame)::Node
             break
         end # end if
     end # for
-    node::Node = node_list[i]
+    node::FNode = node_list[i]
 
     # do some bookeeping here and set the binary representation of the nodes
     set_binary!(node)
+    number_nodes!(node)
     return node
 end # function from_df
 
 """
-    newick(node::Node)::String
+    newick(root::T)::String  where T<:GeneralNode
 Creates a newick representation of the tree.
 
 Returns a properly formatted newick String.
@@ -116,7 +109,7 @@ end
 
 #################### Covariance wrapper ####################
 function to_covariance(tree::TreeStochastic)::Array{Float64,2}
-    blv = get_branchlength_vector(tree)
+    blv::Vector = get_branchlength_vector(tree)
     to_covariance(tree.value, blv)
 end # end to_covariance
 
@@ -130,7 +123,7 @@ function to_covariance(tree::TreeStochastic, blv::Vector{T})::Array{T,2} where T
 end # end to_covariance
 
 """
-    to_covariance_ultra(tree::Node)::Array{T,2} where T<: Real
+    to_covariance_ultra(tree::N)::Array{R,2} where {N <:GeneralNode{R,I}} where {R,I}
 
 Get the covariance matrix of the ultrametric version of `tree` with height 1.
 
@@ -139,7 +132,7 @@ Returns an Array of Real numbers.
 * `tree` : root of tree used to perform calculation.
 
 """
-function to_covariance_ultra(tree::N)::Array{T,2} where {T<: Real, N <:GeneralNode}
+function to_covariance_ultra(tree::N)::Array{R,2} where {N <:GeneralNode{R,I}} where {R,I}
     # scale the branchlength between 0 and 1
     blv = get_branchlength_vector(tree)
     blv ./= tree_height(tree)
@@ -246,7 +239,7 @@ function to_covariance_func(tree::N)::Array{Function,2} where {N<: GeneralNode}
     covmat
 end# function to_covariance
 
-function to_covariance_ultra(tree::Node) where T<: Real
+function to_covariance_ultra(tree::GeneralNode)
     mv = tree_height(tree)
     blv = get_branchlength_vector(tree)
     blv ./= mv

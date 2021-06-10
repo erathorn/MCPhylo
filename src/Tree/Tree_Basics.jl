@@ -8,7 +8,7 @@ my_tree:
 #TODO: Automate export of automatically genereated funtions
 
 """
-    add_child!(mother_node::Node, child::Node, child_position::Union{Int64, Missing}=missing)
+    add_child!(mother_node::N, child::N, child_position::Union{Int64, Missing}=missing) where N <: GeneralNode
 
 This function adds a child to the mother node.
 The arity of the mother node is increased by `1` and the root
@@ -20,7 +20,7 @@ status of the child is set to `False`.
 
 * `child_position` : index at which to add the new child node; optional.
 """
-function add_child!(mother_node::Node, child::Node, child_position::Union{Int64, Missing}=missing)
+function add_child!(mother_node::N, child::N, child_position::Union{Int64, Missing}=missing) where N <: GeneralNode
     if ismissing(child_position)
         push!(mother_node.children, child)
     else
@@ -29,11 +29,10 @@ function add_child!(mother_node::Node, child::Node, child_position::Union{Int64,
     child.mother = mother_node
     mother_node.nchild += 1
     child.root = false
-    mother_node.initialized = true
 end # function add_child
 
 """
-    remove_child!(mother_node::Node, left::Bool)::Node
+    remove_child!(mother_node::N, left::Bool)::N where N <: GeneralNode
 
 This function removes a child from the list of nodes which are daughters of this
 node. An input of "True" removes the left child,
@@ -45,7 +44,7 @@ Returns the removed node.
 
 * `left` : boolean value determining which child of mother_node to remove.
 """
-function remove_child!(mother_node::N, left::Bool)::N where N<:GeneralNode
+function remove_child!(mother_node::N, left::Bool)::N where N <: GeneralNode
     if left
         rv = popfirst!(mother_node.children)
         rv.mother = missing
@@ -58,7 +57,7 @@ function remove_child!(mother_node::N, left::Bool)::N where N<:GeneralNode
 end # function
 
 """
-    remove_child!(mother_node::Node, child::Node)::Node
+    remove_child!(mother_node::N, child::N)::N where N<:GeneralNode
 
 This function removes a child from the list of nodes which are daughters of this
 node.
@@ -79,14 +78,14 @@ function remove_child!(mother_node::N, child::N)::N where N<:GeneralNode
 end # function
 
 """
-    delete_node!(node::Node)::Nothing
+    delete_node!(node::T)::Nothing where T<:GeneralNode
 
 This functions deletes node from a tree and assigns all its children to its
 mother node.
 
 * `node` : Node to be deleted.
 """
-function delete_node!(node::T)::Nothing where T<:AbstractNode
+function delete_node!(node::T)::Nothing where T<:GeneralNode
     if node.root == true
         throw(ArgumentError("Cannot remove root node"))
     end
@@ -99,7 +98,7 @@ function delete_node!(node::T)::Nothing where T<:AbstractNode
 end
 
 """
-    insert_node!(mother::Node, children::Vector{T})::T where T<:AbstractNode
+    insert_node!(mother::T, children::Vector{T})::T where T<:GeneralNode
 
 This function inserts a node into a tree after a mother node and gains
 a subset of the mother's children as its children.
@@ -110,7 +109,7 @@ Returns the inserted node.
 
 * `children` : Children of node referenced by "mother" to reassign as children of the newly-inserted node.
 """
-function insert_node!(mother::T, children::Vector{T})::T where T<:AbstractNode
+function insert_node!(mother::T, children::Vector{T})::T where T<:GeneralNode
     @assert length(children) >= 1
     inserted_node = Node()
     for child in children
@@ -125,12 +124,12 @@ function insert_node!(mother::T, children::Vector{T})::T where T<:AbstractNode
     return inserted_node
 end
 
-function tree_from_leaves(leaf_nodes::Vector{String},node_size::Int, final_length::Int64)::Tuple{Vector{Node}, Int}
-    my_node_list::Array{Node,1} = []
+function tree_from_leaves(leaf_nodes::Vector{String}, node_size::Int, final_length::Int64)::Tuple{Vector{FNode}, Int}
+    my_node_list::Array{FNode,1} = []
 
     # first create a list of leaf nodes
     for node_name in leaf_nodes
-        nn = Node(node_name, data=zeros(Float64, (2, node_size)))
+        nn = Node(node_name)
 
         push!(my_node_list,nn)
     end # for
@@ -145,11 +144,11 @@ function tree_from_leaves(leaf_nodes::Vector{String},node_size::Int, final_lengt
         # get two nodes
         # create a new mother node to which the two first nodes are added as children
         # add the new mother node to the list and reshuffle
-        first_child::Node = pop!(my_node_list)
+        first_child::FNode = pop!(my_node_list)
         first_child.inc_length = rand()#*0.1
-        second_child::Node = pop!(my_node_list)
+        second_child::FNode = pop!(my_node_list)
         second_child.inc_length = rand()
-        curr_node::Node = Node(string(temp_name), data=zeros(Float64, (2, node_size)))
+        curr_node::FNode = Node(string(temp_name))
 
         add_child!(curr_node, first_child)
         add_child!(curr_node, second_child)
@@ -163,7 +162,7 @@ end
 
 
 """
-    create_tree_from_leaves(leaf_nodes::Vector{T})::Node
+    create_tree_from_leaves(leaf_nodes::Vector{T})::FNode
 
 This function creates a  random binary tree from a list of leaf nodes.
 
@@ -171,11 +170,11 @@ The root node as access point for the tree is returned.
 
 * `leaf_nodes` : vector of leaf nodes.
 """
-function create_tree_from_leaves_bin(leaf_nodes::Vector{String}, node_size::Int)::Node
+function create_tree_from_leaves_bin(leaf_nodes::Vector{String}, node_size::Int)::FNode
 
     my_node_list, temp_name = tree_from_leaves(leaf_nodes, node_size ,2)
 
-    root::Node = Node(string(temp_name), data=zeros(Float64, (2, node_size)))
+    root::FNode = Node(string(temp_name))
 
     lchild = pop!(my_node_list)
     lchild.inc_length = rand()
@@ -195,7 +194,7 @@ end # function create_tree_from_leaves
 
 
 """
-    create_tree_from_leaves(leaf_nodes::Vector{T})::Node
+    create_tree_from_leaves(leaf_nodes::Vector{T})::FNode
 
 This function creates a  random binary tree from a list of leaf nodes.
 
@@ -211,7 +210,7 @@ function create_tree_from_leaves(leaf_nodes::Vector{String}, node_size::Int64 = 
 
     my_node_list, temp_name = tree_from_leaves(leaf_nodes, node_size, 3)
 
-    root::Node = Node(string(temp_name), data=zeros(Float64, (2, node_size)))
+    root::FNode = Node(string(temp_name))
     lchild = pop!(my_node_list)
     lchild.inc_length = rand()
     mchild = pop!(my_node_list)
@@ -222,44 +221,6 @@ function create_tree_from_leaves(leaf_nodes::Vector{String}, node_size::Int64 = 
     add_child!(root, rchild)
     add_child!(root, mchild)
 
-    set_binary!(root)
-    number_nodes!(root)
-
-    return root
-end # function create_tree_from_leaves
-
-
-function create_tree_from_leaves_cu(leaf_nodes::Vector{String}, node_size::Int64 = 1)::Node_cu
-    my_node_list::Array{Node_cu,1} = []
-
-    # first create a list of leaf nodes
-    for node_name in leaf_nodes
-        nn =  Node_cu(node_name, zeros(Float64, (2, node_size)),missing, missing, missing, 0, true, 0.0, "0", 0, 0.0)
-        push!(my_node_list,nn)
-    end # for
-
-    # Internal nodes are created using integers as names.
-    temp_name::Int = length(my_node_list)+1
-
-    # shuffle the node list to get a random tree
-    Random.shuffle!(my_node_list)
-
-    while length(my_node_list) != 1
-        # get two nodes
-        # create a new mother node to which the two first nodes are added as children
-        # add the new mother node to the list and reshuffle
-        first_child::Node = pop!(my_node_list)
-        first_child.inc_length = rand(Uniform(0,1))
-        second_child::Node = pop!(my_node_list)
-        second_child.inc_length = rand(Uniform(0,1))
-        curr_node::Node = Node_cu(string(temp_name), zeros(Float64, (2, node_size)), missing, missing, missing, 0, true, 0.0, "0", 0,0.0)
-        add_child!(curr_node, first_child, true)
-        add_child!(curr_node, second_child, false)
-        push!(my_node_list, curr_node)
-        temp_name += 1
-        Random.shuffle!(my_node_list)
-    end # while
-    root = pop!(my_node_list)
     set_binary!(root)
     number_nodes!(root)
 
@@ -451,18 +412,18 @@ end # function
 This function gets the mother of `node`. It does so by looking for the respective
 binary representation of the mother node.
 """
-@inline function get_mother(node::T)::T  where T<:GeneralNode
+@inline function get_mother(node::T)::T  where T <: GeneralNode
     return node.mother
 end # function
 
 """
-    set_binary!(root::Node)
+    set_binary!(root::T)  where T <: GeneralNode
 
 Assign a binary representation to each node, which specifies the path from the
 root to this node via the binary representation of the node.
 A left turn is a 1 in binary and a right turn a 0.
 """
-function set_binary!(root::T)  where T<:GeneralNode
+function set_binary!(root::T)  where T <: GeneralNode
     if root.root
         root.binary = "1"
     end # if
@@ -567,7 +528,7 @@ function set_branchlength_vector!(t::TreeStochastic, blenvec::ArrayStochastic)
     set_branchlength_vector!(t.value, blenvec.value)
 end # function
 
-function set_branchlength_vector!(t::N, blenvec::ArrayStochastic) where N<:Node
+function set_branchlength_vector!(t::N, blenvec::ArrayStochastic) where N <: GeneralNode
     set_branchlength_vector!(t, blenvec.value)
 end # function
 
@@ -658,11 +619,12 @@ function internal_external(root::T)::Vector{Int64}  where T<:GeneralNode
 end
 
 
-function find_lca(tree::T, node_l::Array{String, 1})::T  where T<:GeneralNode
+function find_lca(tree::T, node_l::Vector{S})::T  where {T<:GeneralNode, S<:AbstractString}
     find_lca(tree, [find_by_name(tree, i) for i in node_l])
 end
 
-function find_lca(tree::T, node_l::Array{T})::T  where T<:GeneralNode
+
+function find_lca(tree::T, node_l::Vector{T})::T  where T<:GeneralNode
     @assert length(node_l) > 0
     if length(node_l) === 1
         return node_l[1]
@@ -690,11 +652,11 @@ function find_lca(tree::T, node1::T, node2::T)::T  where T<:GeneralNode
 end
 
 """
-    check_binary(root::Node)::Bool
+    check_binary(root::GeneralNode)::Bool
 
 checks to see if given tree is binary; returns true if properly formatted and false otherwise
 """
-function check_binary(root::Node)::Bool
+function check_binary(root::GeneralNode)::Bool
     if root.root
         if root.nchild != 2 && root.nchild != 3
             return false
@@ -713,11 +675,11 @@ end #function
 
 
 """
-    check_leafsets(trees::Vector{T})::Nothing where T<:AbstractNode
+    check_leafsets(trees::Vector{T})::Nothing where T<:GeneralNode
 
 Checks if an array of trees shares the same leafset (based on the leaf names)
 """
-function check_leafsets(trees::Vector{T})::Nothing where T<:AbstractNode
+function check_leafsets(trees::Vector{T})::Nothing where T<:GeneralNode
     leaveset = Set([n.name for n in get_leaves(trees[1])])
     count = 0
     for (index, tree) in enumerate(trees[2:end])

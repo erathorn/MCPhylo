@@ -126,7 +126,7 @@ function slide!(root::T) where T<:GeneralNode
     # proportion of slide move is randomly selected
     proportion::Float64 = rand()
     # pick a random child
-    child::Node = rand(target.children)
+    child::T = rand(target.children)
 
     # calculate and set new values
     move!(target, child, proportion)
@@ -196,7 +196,7 @@ end
 
 
 """
-    randomize!(root::Node, num::Int64=100)::nothing
+    randomize!(root::T, num::Int64=100)::Nothing where T <:GeneralNode
 
 This function randomizes the tree topology by performing a number of nearest
 neighbour interchange (NNI) moves. The number of NNI moves is specified in
@@ -239,7 +239,7 @@ end
 
 
 """
-    move!(node1::Node, node2::Node, proportion::Float64)
+    move!(node1::T, node2::T, proportion::Float64) where T <:GeneralNode
 
 Change the incoming length of node1 and node2 while keeping their combined length
 constant.
@@ -296,69 +296,68 @@ function recursive_invert(old_mother::T, old_daughter::T)::T where T
 end
 
 """
-    SPR(original_root::Node)::AbstractNode
+    SPR(original_root::GeneralNode)::GeneralNode
 Performs SPR on tree. Takes a copy of root of the tree;
 Returns a copy of root of altered tree. Throws error if tree is improperly formatted.
 """
 
 
-function SPR(original_root::Node)
+function SPR(original_root::GeneralNode)
     root = deepcopy(original_root)
     SPR!(root)
     return root
 end #func
 
 """
-        SPR!(root::Node)::AbstractNode
+        SPR!(root::GeneralNode)::GeneralNode
     Performs SPR on tree in place. Takes reference to root of tree;
     Returns reference to root of altered tree. Throws error if tree is improperly formatted.
 """
-
-function SPR!(root::Node)
+function SPR!(root::GeneralNode)
     if length(post_order(root)) <= 2
         error("The tree is too small for SPR")
     end #if
-    binary = check_binary(root)
-    spr_tree = binary ? perform_spr(root) : throw("Not yet implemented for not binary trees")
-    return spr_tree
+    check_binary(root) || throw(ArgumentError("Not yet implemented for not binary trees"))
+    perform_spr(root)
+    return root
 end #function
 
 """
-        risky_SPR(root::Node)::AbstractNode
+        risky_SPR(root::GeneralNode)::GeneralNode
     Performs SPR on tree in place. Takes reference to root of tree
     Returns copy of root of altered tree. Does not check for correct formatting of tree.
 """
-function risky_SPR(original_root::Node)
+function risky_SPR(original_root::GeneralNode)
     root = deepcopy(original_root)
     return risky_SPR!(root)
 end #function
 
 
 """
-        risky_SPR!(root::Node)::AbstractNode
+        risky_SPR!(root::GeneralNode)::GeneralNode
 Performs SPR on tree in place.
 
 Returns reference to root of altered tree. Does not check for correct formatting of tree.
 
 * `root` : root node of tree.
 """
-function risky_SPR!(root::Node)
+function risky_SPR!(root::GeneralNode)
     return perform_spr(root)
 end #func
 
 """
-    perform_spr(root::Node)
+    perform_spr(root::T) where T <: GeneralNode
 performs SPR on binary tree.
 
 Returns root of tree post-SPR.
 
 * `root` : Node of tree on which to perform SPR.
 """
-function perform_spr(root::Node)
+function perform_spr(root::T) where T <: GeneralNode
     # find node to move
     available = [n.num for n in post_order(root)]
     n = rand(available)
-    tn::Node = find_num(root, n) #this is the root of the subtree which will be moved
+    tn::T = find_num(root, n) #this is the root of the subtree which will be moved
     while tn.root || tn.mother.root
         n = rand(available)
         tn = find_num(root, n) #this is the root of the subtree which will be moved
@@ -372,7 +371,7 @@ function perform_spr(root::Node)
     # find target
     available = [n.num for n in post_order(root)]
     n = rand(available)
-    target::Node = find_num(root, n) #this is the target of the movement
+    target::T = find_num(root, n) #this is the target of the movement
     while target.root
         n = rand(available)
         target = find_num(root, n)
@@ -381,5 +380,6 @@ function perform_spr(root::Node)
     remove_child!(target_mother, target)
     add_child!(target_mother, tn_mother)
     add_child!(tn_mother, target)
+    set_binary!(root)
     return root
 end #func

@@ -1,7 +1,5 @@
-
 """
     to_file(model::ModelChains, outpath::AbstractString)
-
 This function writes the results of the MCMC runs into files. The destination of
 the files is specified using `outpath`. It will create a files for each chain. A
 `params_x.log` file storing each parameter sample. In this case `x` specifies the
@@ -11,35 +9,35 @@ they are stored in newick format in a file called `trees_x.nwk`, where `x` again
 specifies the index of the respective chain.
 """
 function to_file(model::ModelChains, outpath::AbstractString)
-
     for run in 1:size(model.value,3)
-
-        df = DataFrame(model.value[:,:,run])
-        rename!(df, Symbol.(model.names))
         thin = model.range.step
         if isassigned(model.trees, 1)
-            tdf = DataFrame(model.trees[:,:,run])
-            to_file(df, tdf, outpath, string(run), thin, model.tree_names)
+            to_file(model.value[:, :, run], model.trees[:,:,run], outpath, string(run), thin, model.names, model.tree_names)
         else
-            to_file(df, outpath, string(run), thin)
+            to_file(model.value[:, :, run], outpath, string(run), thin, model.names)
         end
     end
 
 end
 
-function to_file(df::DataFrame, outpath::AbstractString, run::AbstractString, thin::Int64)
-    insertcols!(df,1, :it=>1:nrow(df))
-    df[!, 1] .*= thin
-    CSV.write(string(outpath, "params_"*run*".log"), df, writeheader=true, delim="\t")
-
+function to_file(df::Array, outpath::String, run::String, thin::Int64, names::Array)
+    io = open(string(outpath, "params_"*run*".log"),"w")
+    write(io, "it\t")
+    join(io, names, "\t")
+    write(io, "\n")
+    for (ind,row) in enumerate(eachrow(df))
+        write(io, "$(ind*thin)\t")
+        join(io, row, "\t")
+        write(io, "\n")
+    end
+    close(io)
 end
 
-function to_file(df::DataFrame, tdf::DataFrame, outpath::AbstractString,
-                run::AbstractString, thin::Int64, tree_names::Array{A}) where A <: AbstractString
 
-    insertcols!(df,1, :it=>1:nrow(df))
-    df[!, 1] .*= thin
-    CSV.write(string(outpath, "params_"*run*".log"), df, header=true, delim="\t")
+function to_file(df::Array, tdf::Array, outpath::AbstractString,
+                run::AbstractString, thin::Int64, names::Array, tree_names::Array{A}) where A <: AbstractString
+
+    to_file(df, outpath, run, thin, names)
     for (ind, n_name) in enumerate(tree_names)
         io = open(string(outpath, "trees_"*n_name*"_"*run*".nwk"), "w")
         for x = 1:length(tdf[:,ind])

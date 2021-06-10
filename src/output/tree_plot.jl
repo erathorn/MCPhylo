@@ -6,7 +6,7 @@
         https://github.com/EcoJulia/Phylo.jl
 =#
 """
-    f(root::T; <keyword arguments>) where T<:AbstractNode
+    f(root::T; <keyword arguments>) where T<:GerneralNode
 
 Recipe that handles plotting of MCPhylo Trees. Takes the root node as input.
 
@@ -21,7 +21,7 @@ Recipe that handles plotting of MCPhylo Trees. Takes the root node as input.
 """
 @recipe function f(root::T; treetype=:dendrogram, marker_group=nothing,
                    line_group=nothing, showtips=true, tipfont=(7,)
-                   ) where T<:AbstractNode
+                   ) where T<:GeneralNode
 
     linecolor --> :black
     grid --> false
@@ -200,10 +200,10 @@ function _extend(tmp, x)
 end
 
 
-function _findxy(root::T)::Tuple{Dict{Node, Float64}, Dict{Node, Float64}, Vector{String}} where T<:AbstractNode
+function _findxy(root::T)::Tuple{Dict{T, Float64}, Dict{T, Float64}, Vector{String}} where T<:GeneralNode
 
     # two convenience recursive functions using captured variables
-    function findheights!(node::T) where T<:AbstractNode
+    function findheights!(node::T) where T<:GeneralNode
         if !in(node, keys(height))
             for child in node.children
                 findheights!(child)
@@ -215,7 +215,7 @@ function _findxy(root::T)::Tuple{Dict{Node, Float64}, Dict{Node, Float64}, Vecto
         end
     end
 
-    function finddepths!(node::T, parentdepth::Float64 = 0.0) where T>:AbstractNode
+    function finddepths!(node::T, parentdepth::Float64 = 0.0) where T<:GeneralNode
         mydepth = parentdepth
         push!(names, node.name)
         mydepth += node.inc_length
@@ -231,7 +231,7 @@ function _findxy(root::T)::Tuple{Dict{Node, Float64}, Dict{Node, Float64}, Vecto
     sizehint!(height, nnodes)
     findheights!(root)
 
-    depth = Dict{Node, Float64}()
+    depth = Dict{T, Float64}()
     ### Kann man hier node.num stattdessen verwenden, oder Labels hängen später
     ### von dem name Array ab
     names = String[]
