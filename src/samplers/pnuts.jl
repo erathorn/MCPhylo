@@ -176,11 +176,11 @@ function nuts_sub!(v::PNUTSVariate, epsilon::Float64, logfgrad::Function)
         end
         j += 1
         n += nprime
-        s = sprime && nouturn(xminus, xplus, rminus, rplus, gradminus, gradplus, epsilon, logfgrad, delta, nl, j)
-        v.tune.alpha, v.tune.nalpha, v.tune.nniprime = alpha, nalpha, nniprime
         nni += nni1
+        s = sprime && nouturn(xminus, xplus, rminus, rplus, gradminus, gradplus, epsilon, logfgrad, delta, nl, j)
+        v.tune.alpha, v.tune.nalpha, v.tune.nniprime = alpha, nalpha, nni
+        
     end
-  
     v.tune.moves += nni
     v
 end

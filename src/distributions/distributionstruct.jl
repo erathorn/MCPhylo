@@ -13,11 +13,17 @@ end
 
 unlist(d::Distribution, x::AbstractArray) = vec(x)
 
-unlist_sub(d::Distribution, x::AbstractArray) = unlist(d, x)
+function unlist_sub(d::Distribution, x::AbstractArray)
+    unlist(d, x)
+end
 
-unlist_sub(d::UnivariateDistribution, X::AbstractArray) = vec(X)
+function unlist_sub(d::UnivariateDistribution, X::AbstractArray)
+  vec(X)
+end
 
-unlist_sub(D::Array{UnivariateDistribution}, X::AbstractArray) = vec(X)
+function unlist_sub(D::Array{UnivariateDistribution}, X::AbstractArray)
+  vec(X)
+end
 
 function unlist_sub(D::Array{MultivariateDistribution}, X::AbstractArray)
   y = similar(X, length(X))
@@ -157,8 +163,8 @@ end
 function logpdf_sub(d::UnivariateDistribution, X::AbstractArray,
                     transform::Bool)
   lp = 0.0
-  for x in X
-    lp += logpdf_sub(d, x, transform)
+  for x in 1:length(X)
+    lp += logpdf_sub(d, CUDA.@allowscalar(X[x]), transform)
   end
   lp
 end

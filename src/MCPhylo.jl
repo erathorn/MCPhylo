@@ -178,10 +178,15 @@ end
 abstract type SamplerTune end
 
 struct SamplerVariate{T<:SamplerTune} <: VectorVariate
-  value::Union{Vector{Float64}, Vector{S}} where S<:GeneralNode
+  value::Union{A, Vector{S}} where {S<:GeneralNode, A<:DenseArray{Float64}}
   tune::T
 
   function SamplerVariate{T}(x::AbstractVector, tune::T) where T<:SamplerTune
+    v = new{T}(x, tune)
+    validate(v)
+  end
+
+  function SamplerVariate{T}(x::CuArray, tune::T) where T<:SamplerTune
     v = new{T}(x, tune)
     validate(v)
   end
@@ -194,6 +199,13 @@ struct SamplerVariate{T<:SamplerTune} <: VectorVariate
       value = convert(Vector{mt}, x)
     end
     new{T}(value, T(value, pargs...; kargs...))
+  end
+  
+  function SamplerVariate{T}(x::CuArray, pargs...; kargs...) where T<:SamplerTune
+     value = convert(Vector{Float64}, x)
+     value = CuArray(value)
+
+     new{T}(value, T(value, pargs...; kargs...))
   end
 end
 

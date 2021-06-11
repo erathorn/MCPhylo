@@ -86,7 +86,8 @@ end
 
 function names(v::ArrayVariate, prefix)
   offset = ndims(v) > 1 ? 1 : 2
-  values = similar(v.value, AbstractString)
+  vs = size(v)
+  values = Array{AbstractString, length(vs)}(undef, vs)
   for i in 1:length(v)
     s = string(ind2sub(size(v), i))
     values[i] = string(prefix, "[", s[2:(end - offset)], "]")

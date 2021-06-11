@@ -157,7 +157,7 @@ Returns an object of the same type as c with the sampler output stored in the sp
 A value of `:` can be specified for any of the dimensions to indicate no subsetting.
 """
 function Base.setindex!(c::AbstractChains, value, iters, names, chains)
-  setindex!(c.value, value, iters2inds(c, iters), names2inds(c, names), chains)
+  setindex!(c.value, collect(value), iters2inds(c, iters), names2inds(c, names), chains)
 end
 
 macro mapiters(iters, c)

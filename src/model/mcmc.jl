@@ -164,7 +164,6 @@ function mcmc_worker!(args::AbstractArray, ASDSF_step::Int64=0,
 
   reset!(meter)
   for i in window
-
     sample!(m)
     if i > burnin
       if (i - burnin) % thin == 0

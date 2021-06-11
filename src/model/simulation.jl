@@ -368,7 +368,7 @@ Returns vectors of concatenated node values.
 * `transform` : whether to apply a link transformation in the conversion.
 """
 function unlist(m::Model, nodekeys::Vector{Symbol}, transform::Bool=false)
-  vcat(map(key -> unlist(m[key], transform), nodekeys)...)
+  CUDA.@allowscalar(vcat(map(key -> unlist(m[key], transform), nodekeys)...))
 end
 
 """
@@ -400,8 +400,8 @@ function relist(m::Model, x::AbstractArray{T},
   N = length(x)
   offset = 0
   for key in nodekeys
-
-    value, n = relistlength(m[key], view(x, (offset + 1):N), transform)
+    res = relistlength(m[key], view(x, (offset + 1):N), transform)
+    value, n = res
 
     values[key] = value
     offset += n
@@ -458,11 +458,16 @@ function assign!(m::Model, key::Symbol, value::T) where T <: Array
     d = Array{Float64, 1}(undef, 2)
   else
     @assert size(m[key].value) == size(value)
-    d = similar(m[key].value)
+    #d = similar(m[key].value)
+    d = typeof(m[key].value)(value)
+
   end
-  for (ind, elem) in enumerate(value)
-    d[ind] = elem
-  end
+  #@show typeof(d)
+  
+  #for (ind, elem) in enumerate(value)
+  #  d[ind] = elem
+  #end
+  #d .= value
   m[key].value = d
 end
 

@@ -10,13 +10,13 @@ mutable struct SliceTune{F<:SliceForm} <: SamplerTune
 
   SliceTune{F}() where {F<:SliceForm} = new{F}()
 
-  SliceTune{F}(x::Vector, width) where {F<:SliceForm} =
+  SliceTune{F}(x::DenseVector, width) where {F<:SliceForm} =
     SliceTune{F}(x, width, missing)
 
-  SliceTune{F}(x::Vector, width::Real, logf::Union{Function, Missing}) where
+  SliceTune{F}(x::DenseVector, width::Real, logf::Union{Function, Missing}) where
     {F<:SliceForm} = new{F}(logf, Float64(width))
 
-  SliceTune{F}(x::Vector, width::Vector, logf::Union{Function, Missing}) where
+  SliceTune{F}(x::DenseVector, width::Vector, logf::Union{Function, Missing}) where
     {F<:SliceForm} = new{F}(logf, convert(Vector{Float64}, width))
 end
 
@@ -68,7 +68,7 @@ function Slice(params::ElementOrVector{Symbol},
     block = SamplingBlock(model, block, transform)
     v = SamplerVariate(block, width)
     sample!(v, x -> logpdf!(block, x))
-    relist(block, v)
+    relist(block, v.value)
   end
   Sampler(params, samplerfx, SliceTune{F}())
 end
@@ -87,7 +87,7 @@ constrained or unconstrained.
 Returns `v` updated with simulated values and associated tuning parameters.
 """
 function sample!(v::Union{SliceUnivariate, SliceMultivariate}, logf::Function)
-    typeof(v.value[1]) <:GeneralNode ? sample_node!(v, logf) : sample_number!(v, logf)
+    eltype(v.value) <:GeneralNode ? sample_node!(v, logf) : sample_number!(v, logf)
 end
 
 
@@ -189,25 +189,68 @@ end
 
 
 function sample_number!(v::SliceMultivariate, logf::Function)
+ 
   p0 = logf(v.value) + log(rand())
-
+ 
   n = length(v)
-  lower = v - v.tune.width .* rand(n)
+  lower = v.value - convert(typeof(v.value),v.tune.width .* rand(n))
+  #lower = convert(typeof(v.value), lower)
   upper = lower .+ v.tune.width
-
-  x = v.tune.width .* rand(n) + lower
+  pr = convert(typeof(v.value),rand(n))
+  x = v.tune.width .* pr + lower
+  ln = length(v.value)
+  
+  threads = min(ln, MAX_THREADS_PER_BLOCK)
+  threads_x = floor(Int, sqrt(threads))
+  threads_y = threads ÷ threads_x
+  thds = (threads_x, threads_y)
+  blo = ceil.(Int, ln ./ threads)
   while logf(x) < p0
-    for i in 1:n
-      value = x[i]
-      if value < v[i]
-        lower[i] = value
-      else
-        upper[i] = value
-      end
-      x[i] = rand(Uniform(lower[i], upper[i]))
-    end
+    
+    #for i in 1:n
+      #value = x[i]
+      linds = x .< v.value
+      uinds = x .> v.value
+      
+      @cuda blocks = blo threads = thds kernel_place!(lower, x, linds)
+      @cuda blocks = blo threads = thds kernel_place!(upper, x, uinds)
+      #synchronize()
+      #if value < v[i]
+      #  lower[i] = value
+      #else
+      #  upper[i] = value
+      #end
+      #x[i] = rand(Uniform(lower[i], upper[i]))
+      #@show x[1:5]
+      Random.rand!(x)
+    
+      @cuda blocks = blo threads = thds kernel_uniform(x, upper, lower)
+      #synchronize()
+    
   end
-  v[:] = x
-
+  CUDA.@allowscalar(v[:] = x)
   v
+end
+
+const MAX_THREADS_PER_BLOCK = CUDA.attribute(
+   CUDA.CuDevice(0), CUDA.DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK,
+)
+
+
+function kernel_uniform(v, upper, lower)
+  bId = (blockIdx().x-1) + (blockIdx().y-1) * gridDim().x
+  i =  bId * (blockDim().x * blockDim().y) + ((threadIdx().y-1) * blockDim().x) + threadIdx().x
+  if i <= length(v)
+      v[i] = v[i] * (upper[i] - lower[i]) + lower[i]
+  end
+  nothing
+end
+
+function kernel_place!(a, b, c)
+  bId = (blockIdx().x-1) + (blockIdx().y-1) * gridDim().x
+  i =  bId * (blockDim().x * blockDim().y) + ((threadIdx().y-1) * blockDim().x) + threadIdx().x
+  if i <= length(c) && c[i]    
+      a[i] = b[i]
+  end
+  return nothing
 end
