@@ -14,6 +14,7 @@ using LinearAlgebra
 using Plots
 @reexport using Plots
 using Plots.PlotMeasures
+import Plots: plot
 using StatsPlots
 @reexport using StatsPlots
 using RecipesBase
