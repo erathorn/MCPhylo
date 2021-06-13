@@ -122,9 +122,8 @@ function mcmc_master!(m::Model, window::UnitRange{Int},
         sp.trees] for k in chains
   ]
 
-  results::Vector{Tuple{Chains, Model, ModelState}}, stats::Array{Float64, 2}, statnames::Vector{AbstractString}, conv_storage::Union{Nothing, ConvergenceStorage} =
-    pmap2(mcmc_worker!, lsts)
-    	#assign_mcmc_work(mcmc_or_convergence, lsts, sp, conv_storage)
+  results::Tuple{Chains, Model, ModelState}, stats::Array{Float64, 2}, statnames::Vector{AbstractString}, conv_storage::Union{Nothing, ConvergenceStorage} =
+    assign_mcmc_work(mcmc_or_convergence, lsts, sp, conv_storage)
 
   sims::Array{Chains}  = Chains[results[k][1] for k in 1:K]
   model::Model = results[1][2]
@@ -165,10 +164,11 @@ function mcmc_worker!(args::AbstractArray, ASDSF_step::Int64=0,
 
   reset!(meter)
   for i in window
+    @show i
     sample!(m)
     if i > burnin
       if (i - burnin) % thin == 0
-        sim[i, :, 1] = unlist(m, true)
+        sim[i, :, 1] = collect(unlist(m, true))
         if store_trees
           for (ind, tree_node) in enumerate(treenodes)
             sim.trees[treeind, ind, 1] = newick(m[tree_node].value)
