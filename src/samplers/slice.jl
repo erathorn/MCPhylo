@@ -233,7 +233,7 @@ function sample_number!(v::SliceMultivariate, logf::Function)
 end
 
 const MAX_THREADS_PER_BLOCK = CUDA.attribute(
-   CUDA.CuDevice(0), CUDA.DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK,
+   device(), CUDA.DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK,
 )
 
 
