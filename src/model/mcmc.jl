@@ -122,7 +122,7 @@ function mcmc_master!(m::Model, window::UnitRange{Int},
         sp.trees] for k in chains
   ]
 
-  results::Tuple{Chains, Model, ModelState}, stats::Array{Float64, 2}, statnames::Vector{AbstractString}, conv_storage::Union{Nothing, ConvergenceStorage} =
+  results::Vector{Tuple{Chains, Model, ModelState}}, stats::Array{Float64, 2}, statnames::Vector{AbstractString}, conv_storage::Union{Nothing, ConvergenceStorage} =
     assign_mcmc_work(mcmc_or_convergence, lsts, sp, conv_storage)
 
   sims::Array{Chains}  = Chains[results[k][1] for k in 1:K]
@@ -145,6 +145,7 @@ function mcmc_worker!(args::AbstractArray, ASDSF_step::Int64=0,
                       )::Tuple{Chains, Model, ModelState}
   m::Model, state::ModelState, window::UnitRange{Int}, burnin::Integer, thin::Integer, meter::ChainProgress, store_trees::Bool = args
   llname::AbstractString = "likelihood"
+  @show llname
   treeind::Int64 = 1
   m.iter = first(window) - 1
 
