@@ -123,7 +123,8 @@ function mcmc_master!(m::Model, window::UnitRange{Int},
   ]
 
   results::Vector{Tuple{Chains, Model, ModelState}}, stats::Array{Float64, 2}, statnames::Vector{AbstractString}, conv_storage::Union{Nothing, ConvergenceStorage} =
-    	assign_mcmc_work(mcmc_or_convergence, lsts, sp, conv_storage)
+    pmap2(mcmc_worker!, lsts)
+    	#assign_mcmc_work(mcmc_or_convergence, lsts, sp, conv_storage)
 
   sims::Array{Chains}  = Chains[results[k][1] for k in 1:K]
   model::Model = results[1][2]
