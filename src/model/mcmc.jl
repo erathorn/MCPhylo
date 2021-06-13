@@ -165,10 +165,11 @@ function mcmc_worker!(args::AbstractArray, ASDSF_step::Int64=0,
 
   reset!(meter)
   for i in window
+    @show i
     sample!(m)
     if i > burnin
       if (i - burnin) % thin == 0
-        sim[i, :, 1] = unlist(m, true)
+        sim[i, :, 1] = collect(unlist(m, true))
         if store_trees
           for (ind, tree_node) in enumerate(treenodes)
             sim.trees[treeind, ind, 1] = newick(m[tree_node].value)

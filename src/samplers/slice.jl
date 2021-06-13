@@ -211,7 +211,7 @@ function sample_number!(v::SliceMultivariate, logf::Function)
       #value = x[i]
       linds = x .< v.value
       uinds = x .> v.value
-      
+      CUDA.@sync begin
       @cuda blocks = blo threads = thds kernel_place!(lower, x, linds)
       @cuda blocks = blo threads = thds kernel_place!(upper, x, uinds)
       #synchronize()
@@ -225,6 +225,7 @@ function sample_number!(v::SliceMultivariate, logf::Function)
       Random.rand!(x)
     
       @cuda blocks = blo threads = thds kernel_uniform(x, upper, lower)
+      end
       #synchronize()
     
   end
