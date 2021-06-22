@@ -291,10 +291,10 @@ Stochastic(f::Function, d::Integer, args...) = Stochastic(d, f, args...)
 
 function Stochastic_cu(d::Integer, f::Function,
                     monitor::Union{Bool, Vector{Int}}=true)
-
+  
   value = CuArray{Float64}(undef, fill(0, d)...)
   fx, src = modelfxsrc(depfxargs, f)
-  s = ArrayStochastic(value, :nothing, Int[], fx, src, Symbol[],
+  s = ArrayStochasticCu(value, :nothing, Int[], fx, src, Symbol[],
                       NullUnivariateDistribution())
   setmonitor!(s, monitor)
 end
@@ -394,7 +394,7 @@ Returns the node with its assigned initial values.
 
 * `x` : values to assign to the node.
 """
-function setinits!(s::ArrayStochastic, m::Model, x::DenseArray)
+function setinits!(s::A, m::Model, x::DenseArray) where A <: Union{ArrayStochasticCu, ArrayStochastic}
   s.value = convert(typeof(s.value), copy(x))
   s.distr = s.eval(m)
   if isa(s.distr, PhylogeneticDistribution)

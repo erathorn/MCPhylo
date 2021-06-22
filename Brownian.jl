@@ -7,8 +7,8 @@ using Revise
 #@everywhere Pkg.instantiate()
 using Pkg
 Pkg.activate(".")
-using CUDA
 using MCPhylo
+using CUDA
 using LinearAlgebra
 import Distributions: DiscreteMatrixDistribution, logpdf, gradlogpdf
 using CSV,DataFramesMeta, DataFrames

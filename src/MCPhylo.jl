@@ -140,7 +140,18 @@ mutable struct ScalarStochastic <: ScalarVariate
 end
 
 mutable struct ArrayStochastic{N} <: ArrayVariate{N}
-  value::Union{CuArray{Float64, N}, Array{Float64, N}}
+  value::Array{Float64, N}
+  symbol::Symbol
+  monitor::Vector{Int}
+  eval::Function
+  sources::Vector{Symbol}
+  targets::Vector{Symbol}
+  distr::DistributionStruct
+end
+
+
+mutable struct ArrayStochasticCu{N} <: ArrayVariate{N}
+  value::CuArray{Float64, N}
   symbol::Symbol
   monitor::Vector{Int}
   eval::Function
@@ -161,7 +172,7 @@ mutable struct TreeStochastic{T} <: TreeVariate where T<: GeneralNode
 end
 
 const AbstractLogical = Union{ScalarLogical, ArrayLogical}
-const AbstractStochastic = Union{ScalarStochastic, ArrayStochastic}
+const AbstractStochastic = Union{ScalarStochastic, ArrayStochastic, ArrayStochasticCu}
 const AbstractTreeStochastic = Union{TreeLogical, TreeStochastic}
 const AbstractDependent = Union{AbstractLogical, AbstractStochastic, AbstractTreeStochastic}
 

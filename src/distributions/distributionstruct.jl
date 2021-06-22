@@ -66,14 +66,14 @@ end
 
 relistlength(d::UnivariateDistribution, x::T) where T<:GeneralNode = (x, 1)
 
-function relistlength_sub(d::UnivariateDistribution, s::ArrayStochastic,
+function relistlength_sub(d::UnivariateDistribution, s::Union{ArrayStochasticCu, ArrayStochastic},
                           X::AbstractArray)
   n = length(s)
   value = reshape(X[1:n], size(s))
   (value, n)
 end
 
-function relistlength_sub(D::Array{UnivariateDistribution}, s::ArrayStochastic,
+function relistlength_sub(D::Array{UnivariateDistribution}, s::Union{ArrayStochasticCu, ArrayStochastic},
                           X::AbstractArray)
   n = length(s)
   value = reshape(X[1:n], size(s))
@@ -81,7 +81,7 @@ function relistlength_sub(D::Array{UnivariateDistribution}, s::ArrayStochastic,
 end
 
 function relistlength_sub(D::Array{MultivariateDistribution},
-                          s::ArrayStochastic, X::AbstractArray)
+                          s::Union{ArrayStochasticCu, ArrayStochastic}, X::AbstractArray)
   Y = similar(X, size(s))
   offset = 0
   for sub in CartesianIndices(size(D))

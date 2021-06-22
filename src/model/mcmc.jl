@@ -145,7 +145,6 @@ function mcmc_worker!(args::AbstractArray, ASDSF_step::Int64=0,
                       )::Tuple{Chains, Model, ModelState}
   m::Model, state::ModelState, window::UnitRange{Int}, burnin::Integer, thin::Integer, meter::ChainProgress, store_trees::Bool = args
   llname::AbstractString = "likelihood"
-  @show llname
   treeind::Int64 = 1
   m.iter = first(window) - 1
 
@@ -165,7 +164,7 @@ function mcmc_worker!(args::AbstractArray, ASDSF_step::Int64=0,
 
   reset!(meter)
   for i in window
-    @show i
+    
     sample!(m)
     if i > burnin
       if (i - burnin) % thin == 0
