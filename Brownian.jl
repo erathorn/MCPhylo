@@ -1,38 +1,43 @@
 using Revise
+#using Distributed#, CUDA
+#gpus = length(devices())
+#addprocs(2)
+#@everywhere using Pkg
+#@everywhere Pkg.activate(".")
+#@everywhere Pkg.instantiate()
 using Pkg
 Pkg.activate(".")
-Pkg.instantiate()
+using CUDA
 using MCPhylo
 using LinearAlgebra
-import Distributions: DiscreteMatrixDistribution, logpdf
+import Distributions: DiscreteMatrixDistribution, logpdf, gradlogpdf
 using CSV,DataFramesMeta, DataFrames
+using Zygote
+using StatsFuns
+using ChainRules
+using Base.Threads
 includet("BrownianDistr.jl")
 includet("helper.jl")
+includet("browniantree.jl")
+CUDA.allowscalar(false)
 
-#mt, df = make_tree_with_data("notebook/Dravidian.cc.phy.nex",binary=true); # load your own nexus file
 
-#lnum = [n.num for n in get_leaves(mt)]
+data, langs = read_binary("untracked_files/data-ie-42-208.paps.nex");
 
-#dfn = df[:, :, lnum]
-#dfn1 = zeros(size(dfn,3), size(dfn,2))
+mt = MCPhylo.create_tree_from_leaves_bin(langs,1);
 
-#dfn1 .= transpose(dfn[1, :, :])
-data, langs = read_cldf("untracked_files/data-ie-42-208.tsv")
-
-mt = MCPhylo.create_tree_from_leaves_bin(langs,1)
-
-lnum = [n.num for n in get_leaves(mt)]
-lnames = [n.name for n in get_leaves(mt)]
-lnames == langs
-x = zeros(Int,length(lnames))
-for (ind,i) in enumerate(langs)
-   x[ind] = findfirst(y -> y == i, lnames)
-end
+lnum = [n.num for n in get_leaves(mt)];
+lnames = [n.name for n in get_leaves(mt)];
+blv_length = length(get_branchlength_vector(mt))
 
 #dfn = zeros(size(df)[1], size(df)[2], length(lnum))
-mt2 = deepcopy(mt)
-randomize!(mt2)
-data =data[x,:]
+mt2 = deepcopy(mt);
+randomize!(mt2);
+
+mu = zeros(size(data))
+sig = rand(size(data,2))
+latent = rand(blv_length,size(data,2))
+
 my_data = Dict{Symbol, Any}(
   :mtree => mt,
   :df => data,
@@ -41,45 +46,55 @@ my_data = Dict{Symbol, Any}(
 );
 
 
-nclasses_vec = length.(unique.(eachcol(data))) .- 1
+
 
 # model setup
 model =  Model(
-    df = Stochastic(2, (Σ, mu, sig, latent) ->
-                        BrownianCatDistr(mu, sig, Σ, latent, nclasses_vec), false, false),
-
-    Σ = Logical(2,(mtree)->to_covariance(mtree), false),
-    mu = Stochastic(2, ()->Normal(),false),
-    sig = Stochastic(1, ()->Exponential(),false),
-    latent = Stochastic(1,()->Normal(),false),
+    df = Stochastic(2, (mtree, mu, sig, latent) ->
+                        BrownianTreeDistr(mu, sig, mtree, latent), false, true),
+    mu = Stochastic(2, ()-> Normal(), false, true),
+    sig = Stochastic(1, ()-> LogNormal(0,0.1), true, true),
+    latent = Stochastic(2, ()-> Normal(), false, true),
     mtree = Stochastic(Node(), () -> CompoundDirichlet(1.0,1.0,0.100,1.0), true)
-   )
+   );
 
 inits = [ Dict{Symbol, Union{Any, Real}}(
    :mtree => mt,
    :df => my_data[:df],
    :nnodes => my_data[:nnodes],
-   :mu => zeros(my_data[:nnodes], my_data[:nsites]),
+   :mu => zeros(size(my_data[:df])),
    :sig => rand(my_data[:nsites]),
-   :latent => randn(30514)
+   :latent => rand(blv_length,size(my_data[:df],2)),
    ),
    Dict{Symbol, Union{Any, Real}}(
    :mtree => mt2,
    :df => my_data[:df],
    :nnodes => my_data[:nnodes],
-   :mu => zeros(my_data[:nnodes], my_data[:nsites]),
+   :mu => zeros(size(my_data[:df])),
    :sig => rand(my_data[:nsites]),
-   :latent => randn(30514)
+   :latent => rand(blv_length, size(my_data[:df],2)),
    )
-    ]
+    ];
 
-scheme = [RWM(:mtree, [:NNI]),
-          Slice(:mtree, [1.0]),
-          Slice(:sig, 1.0),
-          Slice(:latent, 1.0)
-         ]
+scheme = [#RWM(:mtree, [:NNI, :SPR]),
+          #Slice(:mtree, 0.5),
+          PNUTS(:mtree, target=0.8, targetNNI=8),
+          #NUTS([:sig, :latent], dtype=:Zygote)
+          Slice([:sig, :latent], 0.5)
+         ];
 
 setsamplers!(model, scheme);
 
-sim = mcmc(model, my_data, inits, 100, burnin=50,thin=5, chains=2, trees=true)
-sim = mcmc(sim, 500, trees=true)
+sim = mcmc(model, my_data, inits, 50, burnin=0,thin=1, chains=1, trees=true)
+
+#psrf = max_psrf(sim)
+#@show psrf
+#to_file(sim, "Brownian_IE_")
+#while psrf > 1.1
+#    global sim, psrf#, bi, gd, gd_values, indices
+#    @show psrf
+#    sim = mcmc(sim, 500000)
+#    psrf = max_psrf(sim)
+#    to_file(sim, "Brownian_IE_")
+#end
+
