@@ -69,12 +69,12 @@ end
 """
 function gradlogpdf!(m::Model, x::AbstractVector{T}, block::Integer=0,
                       transform::Bool=false; dtype::Symbol=:forward) where {T<:Real}
-  f = x -> logpdf!(m, x, block, transform)
-  if dtype == :Zygote
-    Zygote.gradient(f, x)
-  else
-    FiniteDiff.finite_difference_gradient(f, x)
-  end
+  mglogpdf!(m, x, block, transform)
+  #if dtype == :Zygote
+  #  Zygote.gradient(f, x)
+  #else
+  #  FiniteDiff.finite_difference_gradient(f, x)
+  #end
 
 end
 
@@ -175,6 +175,34 @@ function gradlogpdf!(m::Model, x::AbstractArray{T}, block::Integer=0,transform::
   gradlogpdf!(m, x, block, transform)
 end
 
+
+function mglogpdf!(m::Model, x::AbstractArray{T}, block::Integer=0,
+                  transform::Bool=false) where {T<:Real}
+  params = keys(m, :block, block)
+  targets = keys(m, :target, block)  
+  m[params] = relist(m, x, params, transform)
+  grad = mlgradlogpdf(m, setdiff(params, targets), transform)
+  lp = logpdf(m, setdiff(params, targets), transform)
+  
+  lp = isnan(lp) ? -Inf : lp
+  for key in targets
+    isfinite(lp) || break
+    node = m[key]
+    update!(node, m)
+    
+    
+    inter = key in params ? gradlogpdf(node, transform) : gradlogpdf(node)
+    #@show key, lp, size(inter)
+    #throw("break")
+    lp += inter[1]
+    
+    CUDA.@allowscalar grad .+= vcat(vec(inter[5]), vec(inter[4]))
+  end
+  #throw("break")
+  lp, grad
+end
+
+
 """
     gradlogpdf(m::Model, targets::Array{Symbol, 1})::Tuple{Float64, Array{Float64}}
 
@@ -195,6 +223,24 @@ Returns the resulting gradient vector. Method `gradlogpdf!()` additionally updat
 
   * `:forward` : forward differencing.
 """
+function mlgradlogpdf(m::Model, targets::Array{Symbol, 1}, transform::Bool=false)
+  gradp = AbstractArray[]
+  for key in targets
+    
+    node = m[key]
+    update!(node, m)
+    
+    grad = gradlogpdf(node)
+    
+    #vp += v
+    
+    push!(gradp, vec(grad))
+  end
+  #m.likelihood = vp
+  
+  vcat(gradp...)
+end
+
 function gradlogpdf(m::Model, targets::Array{Symbol, 1})::Tuple{Float64, Array{Float64}}
   vp = 0.0
   gradp = Array[]
@@ -208,17 +254,18 @@ function gradlogpdf(m::Model, targets::Array{Symbol, 1})::Tuple{Float64, Array{F
   m.likelihood = vp
   vp, .+(gradp...)
 end
+
 """
     gradlogpdf!(m::Model, x::N, block::Integer=0,transform::Bool=false)::Tuple{Float64, Vector{Float64}}
         where N<:GeneralNode
 
 Returns the resulting gradient vector. Method `gradlogpdf!()` additionally updates model `m` with supplied values `x`.
 """
-function gradlogpdf!(m::Model, x::N, block::Integer=0,transform::Bool=false)::Tuple{Float64, Vector{Float64}} where N<:GeneralNode
+function gradlogpdf!(m::Model, x::N, block::Integer=0, transform::Bool=false)::Tuple{Float64, Vector{Float64}} where N<:GeneralNode
   params = keys(m, :block, block)
   targets = keys(m, :target, block)
   m[params] = relist(m, x, params, transform)
-  lp = logpdf(m, setdiff(params, targets), transform)
+  #lp = logpdf(m, setdiff(params, targets), transform)
 
 
   # use thread parallelism
@@ -226,12 +273,12 @@ function gradlogpdf!(m::Model, x::N, block::Integer=0,transform::Bool=false)::Tu
   lik_res = @spawn gradlogpdf(m, targets)
 
   # prior
-  vp, gradp =  gradlogpdf(m[params[1]], x)
+  vp, gradp = gradlogpdf(m[params[1]], x)
 
   # get results from threads
   v, grad = fetch(lik_res)
 
-  vp+v, gradp.+grad
+  vp+v, gradp.+grad[1]
 end
 """
     logpdf!(m::Model, x::AbstractArray{T}, block::Integer=0,
@@ -252,6 +299,8 @@ function logpdf!(m::Model, x::AbstractArray{T}, block::Integer=0,
     isfinite(lp) || break
     node = m[key]
     update!(node, m)
+    #@show key, lp, params
+    #@show logpdf(node)
     lp += key in params ? logpdf(node, transform) : logpdf(node)
   end
   lp

@@ -70,6 +70,7 @@ function relistlength_sub(d::UnivariateDistribution, s::Union{ArrayStochasticCu,
                           X::AbstractArray)
   n = length(s)
   value = reshape(X[1:n], size(s))
+  
   (value, n)
 end
 
@@ -202,6 +203,15 @@ end
 
 function gradlogpdf_sub(d::Distribution, x::AbstractArray)
   gradlogpdf(d, x)
+end
+function gradlogpdf_sub(d::UnivariateDistribution, X::AbstractArray)
+  lp = similar(X)
+  CUDA.@allowscalar begin
+  for x in 1:length(X)
+    lp[x] = gradlogpdf(d,  X[x])
+    end
+  end
+  lp
 end
 
 

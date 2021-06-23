@@ -171,9 +171,15 @@ end
 
 function logpdfgrad!(block::SamplingBlock, x::AbstractVector{T},
                     dtype::Symbol) where {T<:Real}
-  grad = gradlogpdf!(block, x, dtype)
-  logf = logpdf!(block, x)
-  (logf, ifelse.(isfinite.(grad), grad, 0.0))
+  if dtype == :Zygote
+    logf, grad = gradlogpdf!(block, x, dtype)
+    
+  else
+    grad = gradlogpdf!(block, x, dtype)
+    logf = logpdf!(block, x)
+    
+  end
+  logf, grad
 end
 
 #################### unlist and relist functionality ####################

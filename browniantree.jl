@@ -31,15 +31,13 @@ Base.size(d::BrownianTreeDistr) = d.dim
 
 #sampler(d::BrownianDistr) = Sampleable{MatrixVariate,Discrete}
 
-function logpdf(d::BrownianTreeDistr, x::A)::Float64 where A<:(AbstractMatrix{T} where T<:Real)
+function logpdf(d::BrownianTreeDistr, x::A) where A<:(AbstractMatrix{T} where T<:Real)
     blv = CuArray(get_branchlength_vector(d.tree))
     om = CuArray(other_matrix(d.tree, length(blv)))
     
     #res = Base.Threads.Atomic{Float64}(0.0)
         
     r = lpdfcalculator_i(blv, om, d.μ_Arr, d.latent, d.σ, x)
-    #r2 = lpdfcalculator_i(collect(blv), collect(om), collect(d.μ_Arr), collect(d.latent), collect(d.σ), collect(x))
-    
     
     r
 end
@@ -52,30 +50,29 @@ function gradlogpdf(d::BrownianTreeDistr, x::AbstractArray)
     #r = Zygote.pullback(f, blv)
     #res = r[1],r[2](1.0)[1]
 
-    f1(y) = lpdfcalculator_i(y, om, d.μ_Arr, d.latent, d.σ, x)
+    f1(y, m, l, s) = lpdfcalculator_i(y, om, m, l, s, x)
     #grd = zeros(size(blv))
     #mr = Base.Threads.Atomic{Float64}(0.0)
     ##grd = Array{Base.Threads.Atomic{Float64},1}(0, length(blv))
     #grd = [Base.Threads.Atomic{Float64}(0.0) for i in 1:length(blv)]
     
     #Base.Threads.atomic_xchg!.(grd, 0.0)
-    r = Zygote.pullback(f1, blv)
-    # @show r
-    gr = r[2](1.0)[1]
+    r = Zygote.pullback(f1, blv, d.μ_Arr, d.latent, d.σ)
+    
+    gr = r[2](1.0)
     
     #@show isapprox(mr, res[1])
     #@show isapprox.(grd, res[2])
 
-    return r[1], gr
+    return r[1], gr...
 end
 
 
-function lpdfcalculator_i(blv::A, om::B, μ_Arr::B, latent::B, σ::A, x::B)::F where {A<:AbstractArray{F, 1}, B<:AbstractArray{F,2}} where  F<:Real
-    cl = om * Diagonal(sqrt.(blv))
-    bernp = μ_Arr .+  cl * (transpose(sqrt.(σ)) .* latent)
-    res = sum(mbern.(logistic.(bernp), x))
-    res
+
+function lpdfcalculator_i(blv::A, om::B, μ_Arr::B, latent::B, σ::A, x::B) where {A<:AbstractArray{F, 1}, B<:AbstractArray{F,2}} where  F<:Real
+    sum(mbern.(logistic.(μ_Arr .+  (om * Diagonal(sqrt.(blv))) * (transpose(sqrt.(σ)) .* latent)), x))
 end
+
 
 
 

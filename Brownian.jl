@@ -78,14 +78,14 @@ inits = [ Dict{Symbol, Union{Any, Real}}(
 
 scheme = [#RWM(:mtree, [:NNI, :SPR]),
           #Slice(:mtree, 0.5),
-          PNUTS(:mtree, target=0.8, targetNNI=8),
-          #NUTS([:sig, :latent], dtype=:Zygote)
-          Slice([:sig, :latent], 0.5)
+          #PNUTS(:mtree, target=0.8, targetNNI=8),
+          NUTS([:sig, :latent], dtype=:Zygote)
+          #Slice([:sig, :latent], 0.5)
          ];
 
 setsamplers!(model, scheme);
 
-sim = mcmc(model, my_data, inits, 50, burnin=0,thin=1, chains=1, trees=true)
+sim = mcmc(model, my_data, inits, 5, burnin=0,thin=1, chains=1, trees=true)
 
 #psrf = max_psrf(sim)
 #@show psrf

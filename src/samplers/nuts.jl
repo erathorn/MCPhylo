@@ -20,20 +20,20 @@ mutable struct NUTSTune <: SamplerTune
 
   NUTSTune() = new()
 
-  function NUTSTune(x::Vector, epsilon::Real, logfgrad::Union{Function, Missing};
-                    target::Real=0.6, tree_depth::Int=10)
+  function NUTSTune(x::V, epsilon::Real, logfgrad::Union{Function, Missing};
+                    target::Real=0.6, tree_depth::Int=10)  where V <: AbstractVector{Float64}
     new(logfgrad, false, 0.0, epsilon, 1.0, 0.05, 0.0, 0.75, 0, NaN, 0, 10.0,
         target, tree_depth)
   end
 end
 
-NUTSTune(x::Vector{Float64}, logfgrad::Function, ::NullFunction; args...) =
+NUTSTune(x::V, logfgrad::Function, ::NullFunction; args...)  where V <: AbstractVector{Float64} =
   NUTSTune(x, nutsepsilon(x, logfgrad); args...)
 
-NUTSTune(x::Vector{Float64}, logfgrad::Function; args...) =
+NUTSTune(x::V, logfgrad::Function; args...)  where V <: AbstractVector{Float64} =
   NUTSTune(x, nutsepsilon(x, logfgrad), logfgrad; args...)
 
-NUTSTune(x::Vector, epsilon::Real; args...) =
+NUTSTune(x::V, epsilon::Real; args...)  where V <: AbstractVector{Float64} =
   NUTSTune(x, epsilon, missing; args...)
 
 const NUTSVariate = SamplerVariate{NUTSTune}
@@ -63,7 +63,7 @@ function NUTS(params::ElementOrVector{Symbol}; dtype::Symbol=:forward, args...)
     f = x -> logpdfgrad!(block, x, dtype)
     v = SamplerVariate(block, f, NullFunction(); args...)
     sample!(v, f, adapt=model.iter <= model.burnin)
-    relist(block, v)
+    relist(block, v.value)
   end
   Sampler(params, samplerfx, NUTSTune())
 end
@@ -114,7 +114,7 @@ end
 
 function nuts_sub!(v::NUTSVariate, epsilon::Real, logfgrad::Function)
   n = length(v)
-  x, r, logf, grad = leapfrog(v.value, randn(n), zeros(n), 0.0, logfgrad)
+  x, r, logf, grad = leapfrog(v.value, CuArray(randn(n)), CuArray(zeros(n)), 0.0, logfgrad)
   logp0 = logf - 0.5 * dot(r)
   logu0 = logp0 + log(rand())
   xminus = xplus = x
@@ -146,8 +146,8 @@ function nuts_sub!(v::NUTSVariate, epsilon::Real, logfgrad::Function)
 end
 
 
-function leapfrog(x::Vector{Float64}, r::Vector{Float64}, grad::Vector{Float64},
-                  epsilon::Real, logfgrad::Function)
+function leapfrog(x::V, r::V, grad::V,
+                  epsilon::Real, logfgrad::Function) where V <: AbstractVector{Float64}
   r += (0.5 * epsilon) * grad
   x += epsilon * r
   logf, grad = logfgrad(x)
@@ -156,9 +156,9 @@ function leapfrog(x::Vector{Float64}, r::Vector{Float64}, grad::Vector{Float64},
 end
 
 
-function buildtree(x::Vector{Float64}, r::Vector{Float64},
-                   grad::Vector{Float64}, pm::Integer, j::Integer,
-                   epsilon::Real, logfgrad::Function, logp0::Real, logu0::Real)
+function buildtree(x::V, r::V,
+                   grad::V, pm::Integer, j::Integer,
+                   epsilon::Real, logfgrad::Function, logp0::Real, logu0::Real) where V <: AbstractVector{Float64}
   if j == 0
     xprime, rprime, logfprime, gradprime = leapfrog(x, r, grad, pm * epsilon,
                                                     logfgrad)
@@ -200,8 +200,8 @@ function buildtree(x::Vector{Float64}, r::Vector{Float64},
 end
 
 
-function nouturn(xminus::Vector{Float64}, xplus::Vector{Float64},
-                 rminus::Vector{Float64}, rplus::Vector{Float64})
+function nouturn(xminus::V, xplus::V,
+                 rminus::V, rplus::V) where V <: AbstractVector{Float64}
   xdiff = xplus - xminus
   dot(xdiff, rminus) >= 0 && dot(xdiff, rplus) >= 0
 end
@@ -209,14 +209,15 @@ end
 
 #################### Auxilliary Functions ####################
 
-function nutsepsilon(x::Vector{Float64}, logfgrad::Function)
+function nutsepsilon(x::V, logfgrad::Function) where V <: AbstractVector{Float64}
   n = length(x)
-  _, r0, logf0, grad0 = leapfrog(x, randn(n), zeros(n), 0.0, logfgrad)
+  _, r0, logf0, grad0 = leapfrog(x, CuArray(randn(n)), CuArray(zeros(n)), 0.0, logfgrad)
   epsilon = 1.0
   _, rprime, logfprime, gradprime = leapfrog(x, r0, grad0, epsilon, logfgrad)
   prob = exp(logfprime - logf0 - 0.5 * (dot(rprime) - dot(r0)))
   pm = 2 * (prob > 0.5) - 1
   while prob^pm > 0.5^pm
+    @show epsilon
     epsilon *= 2.0^pm
     _, rprime, logfprime, _ = leapfrog(x, r0, grad0, epsilon, logfgrad)
     prob = exp(logfprime - logf0 - 0.5 * (dot(rprime) - dot(r0)))
