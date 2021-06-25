@@ -123,7 +123,7 @@ function nuts_sub!(v::NUTSVariate, epsilon::Real, logfgrad::Function)
   j = 0
   n = 1
   s = true
-  while s || j < v.tune.tree_depth
+  while s && j < v.tune.tree_depth
     pm = 2 * (rand() > 0.5) - 1
     if pm == -1
       xminus, rminus, gradminus, _, _, _, xprime, nprime, sprime, alpha,
