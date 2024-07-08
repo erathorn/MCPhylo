@@ -233,7 +233,7 @@ function MultiplePhyloDist(
     substitution_model::K,
 ) where {T<:GeneralNode,S<:DenseArray{Float64},R<:DenseArray{Float64},K<:typeof(freeK)}
     n = size(substitution_rates, 1)
-    s = Int(round((sqrt(8n + 1) - 1) / 2))
+    s = Int(round(sqrt(n+1/4)+1/2))
 
     n_t = length(tree_array)
     base_freq_l = Array{Float64,2}(undef, s, n_t)
