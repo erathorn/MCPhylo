@@ -135,6 +135,12 @@ function R_gemmturbo_large!(
     nothing
 end
 
+function RG(C, A, mu, blv, D, rates)
+    for r in rates
+
+end
+
+
 
 function L_gemmturbo_large!(C::T, A::T, B::S)::Nothing where {T,S}
     @tturbo check_empty = false for r ∈ axes(A, 3),
@@ -153,10 +159,10 @@ end
 
 
 function parallel_transition_prob(
-    U::Matrix,
-    D::Vector,
-    Uinv::Matrix,
-    rates::Vector,
+    U::Matrix{R},
+    D::Vector{R},
+    Uinv::Matrix{R},
+    rates::Vector{R},
     mu::Float64,
     blv::Vector{R},
 )::Array{R,4} where {R<:Real}
@@ -166,6 +172,22 @@ function parallel_transition_prob(
     L_gemmturbo_large!(out, out2, Uinv)
     out
 end
+
+
+function parallel_transition_prob(
+    U::Matrix,
+    D::Vector,
+    Uinv::Matrix,
+    rates::Vector,
+    mu::Float64,
+    blv::Vector{R},
+)::Array{R,4} where {R<:Real}
+    
+    res = broadcast(x -> diagm(exp.(D .* mu .* x)), rates * blv')
+    res2 = broadcast( x-> U * x * Uinv, res)
+    return reshape(hcat(res2...), (length(D), length(D), length(rates), length(blv)))
+end
+
 
 function turbo_mul!(data::A, tmp_data::A, pnum::D, nums::Vector{D})::Nothing where {A,D}
     @tturbo check_empty = false inline = true for num_ind in eachindex(nums),
