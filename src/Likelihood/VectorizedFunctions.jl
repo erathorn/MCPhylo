@@ -135,12 +135,6 @@ function R_gemmturbo_large!(
     nothing
 end
 
-function RG(C, A, mu, blv, D, rates)
-    for r in rates
-
-end
-
-
 
 function L_gemmturbo_large!(C::T, A::T, B::S)::Nothing where {T,S}
     @tturbo check_empty = false for r ∈ axes(A, 3),
